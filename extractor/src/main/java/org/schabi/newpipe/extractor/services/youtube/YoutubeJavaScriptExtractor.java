@@ -10,7 +10,6 @@ import org.schabi.newpipe.extractor.localization.Localization;
 import org.schabi.newpipe.extractor.utils.Parser;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.regex.Pattern;
@@ -38,13 +37,6 @@ final class YoutubeJavaScriptExtractor {
     private static final Pattern EMBEDDED_WATCH_PAGE_JS_BASE_PLAYER_URL_PATTERN = Pattern.compile(
             "\"jsUrl\":\"(/s/player/[A-Za-z0-9]+/player_ias\\.vflset/[A-Za-z_-]+/base\\.js)\"");
 
-    // Override hash - set this to force a specific player version
-    // Set to null to use the default behavior (extract from YouTube)
-    private static final String OVERRIDE_PLAYER_HASH = "0004de42"; // Working version
-
-    // Alternative: make it configurable via system property
-    // private static final String OVERRIDE_PLAYER_HASH = System.getProperty("youtube.player.hash");
-
     private YoutubeJavaScriptExtractor() {
     }
 
@@ -60,20 +52,6 @@ final class YoutubeJavaScriptExtractor {
     @Nonnull
     static String extractJavaScriptPlayerCode(@Nonnull final String videoId)
             throws ParsingException {
-        
-        // If override hash is set, use it directly
-        if (OVERRIDE_PLAYER_HASH != null && !OVERRIDE_PLAYER_HASH.isEmpty()) {
-            final String playerJsUrl = String.format(BASE_JS_PLAYER_URL_FORMAT, OVERRIDE_PLAYER_HASH);
-            try {
-                // Assert that the URL we built is valid
-                new URL(playerJsUrl);
-                return YoutubeJavaScriptExtractor.downloadJavaScriptCode(playerJsUrl);
-            } catch (final MalformedURLException e) {
-                throw new ParsingException("The override player hash produced an invalid URL", e);
-            }
-        }
-
-        // Original logic - try IFrame resource first, then embed page
         String url;
         try {
             url = YoutubeJavaScriptExtractor.extractJavaScriptUrlWithIframeResource();
@@ -97,17 +75,6 @@ final class YoutubeJavaScriptExtractor {
 
             return YoutubeJavaScriptExtractor.downloadJavaScriptCode(playerJsUrl);
         }
-    }
-
-    /**
-     * Sets the override player hash. This allows runtime configuration of the player version.
-     * 
-     * @param hash the player hash to use, or null to use default behavior
-     */
-    public static void setOverridePlayerHash(@Nullable final String hash) {
-        // Note: This would require making OVERRIDE_PLAYER_HASH non-final and non-static
-        // For thread safety, you might want to use AtomicReference or similar
-        throw new UnsupportedOperationException("Runtime hash override not implemented in this version");
     }
 
     @Nonnull
