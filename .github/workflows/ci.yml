@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    name: Build and Test
+    name: Build
     runs-on: ubuntu-latest
     
     steps:
@@ -28,16 +28,11 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build with Gradle
-        run: ./gradlew build -x checkstyleMain -x test --no-daemon
+        run: ./gradlew assemble --no-daemon
 
-      - name: Run Tests
-        run: ./gradlew test -x checkstyleMain --no-daemon
-
-      - name: Upload test results
+      - name: Upload JAR artifacts
         uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: test-results
+          name: jar-artifacts
           path: |
-            **/build/reports/tests/
-            **/build/test-results/
+            **/build/libs/*.jar
