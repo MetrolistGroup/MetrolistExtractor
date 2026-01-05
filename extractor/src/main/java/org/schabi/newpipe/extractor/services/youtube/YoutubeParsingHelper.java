@@ -165,7 +165,7 @@ YoutubeParsingHelper {
      * such as <a href="https://www.apkmirror.com/apk/google-inc/youtube/">APKMirror</a>.
      * </p>
      */
-    private static final String ANDROID_YOUTUBE_CLIENT_VERSION = "19.28.35";
+    private static final String ANDROID_YOUTUBE_CLIENT_VERSION = "20.51.39";
 
     /**
      * The InnerTube API key used by the {@code ANDROID} client. Found with the help of
@@ -183,7 +183,7 @@ YoutubeParsingHelper {
      * Store page of the YouTube app</a>, in the {@code What’s New} section.
      * </p>
      */
-    private static final String IOS_YOUTUBE_CLIENT_VERSION = "19.45.4";
+    private static final String IOS_YOUTUBE_CLIENT_VERSION = "20.50.9";
 
     /**
      * The InnerTube API key used by the {@code iOS} client. Found with the help of
@@ -194,8 +194,8 @@ YoutubeParsingHelper {
     /**
      * The hardcoded client version used for InnerTube requests with the TV HTML5 embed client.
      */
-    private static final String TVHTML5_SIMPLY_EMBED_CLIENT_VERSION = "7.20250923.13.00";
-    private static final String WEB_CLIENT_VERSION = "2.20241126.01.00";
+    private static final String TVHTML5_SIMPLY_EMBED_CLIENT_VERSION = "7.20250105.15.00";
+    private static final String WEB_CLIENT_VERSION = "2.20250105.01.00";
 
     private static String clientVersion;
 
@@ -239,7 +239,7 @@ YoutubeParsingHelper {
      *
      * @see #IOS_USER_AGENT_VERSION
      */
-    private static final String IOS_OS_VERSION = "18.1.0.22B83";
+    private static final String IOS_OS_VERSION = "18.2.1.22C161";
 
     /**
      * Spoofing an iPhone 15 running iOS 17.5.1 with the hardcoded version of the iOS app. To be
@@ -247,7 +247,7 @@ YoutubeParsingHelper {
      *
      * @see #IOS_OS_VERSION
      */
-    private static final String IOS_USER_AGENT_VERSION = "18_1_0";
+    private static final String IOS_USER_AGENT_VERSION = "18_2_1";
 
     private static Random numberGenerator = new Random();
 

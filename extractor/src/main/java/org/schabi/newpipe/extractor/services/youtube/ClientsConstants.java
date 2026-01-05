@@ -19,18 +19,18 @@ final class ClientsConstants {
      * The client version for InnerTube requests with the {@code WEB} client, used as the last
      * fallback if the extraction of the real one failed.
      */
-    static final String WEB_HARDCODED_CLIENT_VERSION = "2.20250122.04.00";
+    static final String WEB_HARDCODED_CLIENT_VERSION = "2.20250105.01.00";
 
     // WEB_REMIX (YouTube Music) client fields
 
     static final String WEB_REMIX_CLIENT_ID = "67";
     static final String WEB_REMIX_CLIENT_NAME = "WEB_REMIX";
-    static final String WEB_REMIX_HARDCODED_CLIENT_VERSION = "1.20250122.01.00";
+    static final String WEB_REMIX_HARDCODED_CLIENT_VERSION = "1.20250105.01.00";
 
     // TVHTML5 (YouTube on TVs and consoles using HTML5) client fields
     static final String TVHTML5_CLIENT_ID = "7";
     static final String TVHTML5_CLIENT_NAME = "TVHTML5";
-    static final String TVHTML5_CLIENT_VERSION = "7.20250122.15.00";
+    static final String TVHTML5_CLIENT_VERSION = "7.20250105.15.00";
     static final String TVHTML5_CLIENT_PLATFORM = "GAME_CONSOLE";
     static final String TVHTML5_DEVICE_MAKE = "Sony";
     static final String TVHTML5_DEVICE_MODEL_AND_OS_NAME = "PlayStation 4";
@@ -43,7 +43,13 @@ final class ClientsConstants {
 
     static final String WEB_EMBEDDED_CLIENT_ID = "56";
     static final String WEB_EMBEDDED_CLIENT_NAME = "WEB_EMBEDDED_PLAYER";
-    static final String WEB_EMBEDDED_CLIENT_VERSION = "1.20250121.00.00";
+    static final String WEB_EMBEDDED_CLIENT_VERSION = "1.20250105.00.00";
+
+    // WEB_MUSIC_ANALYTICS (YouTube charts)
+
+    static final String WEB_MUSIC_ANALYTICS_CLIENT_ID = "31";
+    static final String WEB_MUSIC_ANALYTICS_CLIENT_NAME = "WEB_MUSIC_ANALYTICS";
+    static final String WEB_MUSIC_ANALYTICS_CLIENT_VERSION = "2.0";
 
     // IOS (iOS YouTube app) client fields
 
@@ -59,7 +65,7 @@ final class ClientsConstants {
      * Store page of the YouTube app</a>, in the {@code What’s New} section.
      * </p>
      */
-    static final String IOS_CLIENT_VERSION = "20.03.02";
+    static final String IOS_CLIENT_VERSION = "20.50.9";
 
     /**
      * The device machine id for the iPhone 15 Pro Max, used to get 60fps with the {@code iOS}
@@ -114,5 +120,5 @@ final class ClientsConstants {
      * such as <a href="https://www.apkmirror.com/apk/google-inc/youtube/">APKMirror</a>.
      * </p>
      */
-    static final String ANDROID_CLIENT_VERSION = "19.28.35";
+    static final String ANDROID_CLIENT_VERSION = "20.51.39";
 }
