@@ -35,7 +35,13 @@ final class YoutubeSignatureUtils {
             Pattern.compile(
                     "(?:\\b|[^a-zA-Z0-9$])([a-zA-Z0-9$]{2,})\\s*=\\s*function\\(\\s*a\\s*\\)\\s*\\{\\s*a\\s*=\\s*a\\.split\\(\\s*\"\"\\s*\\)(?:;[a-zA-Z0-9$]{2}\\.[a-zA-Z0-9$]{2}\\(a,\\d+\\))?"
             ),
-//            Pattern.compile("\\bm=([a-zA-Z0-9$]{2,})\\(decodeURIComponent\\(h\\.s\\)\\)"),
+            // Additional patterns for 2026 obfuscation methods
+            Pattern.compile(
+                    "\\b([a-zA-Z0-9$_]+)\\s*=\\s*function\\(([a-zA-Z0-9$_]+)\\)\\s*\\{\\s*\\2\\s*=\\s*\\2\\.split\\(\\s*[a-zA-Z0-9$_]+\\[\\d+\\]\\s*\\)"
+            ),
+            Pattern.compile(
+                    "\\b([a-zA-Z0-9$_]+)\\s*&&\\s*\\(\\s*\\1\\s*=\\s*([a-zA-Z0-9$_]+)\\s*\\(\\s*decodeURIComponent\\s*\\(\\s*\\1\\s*\\)\\s*\\)\\s*\\)"
+            ),
             // CHECKSTYLE:ON
     };
 

@@ -26,33 +26,20 @@ public final class YoutubeThrottlingParameterUtils {
 
     private static final String ARRAY_ACCESS_REGEX = "\\[(\\d+)]";
 
+    // NOTE: When changing this you should also change the quick exit/shortcut
+    // in getThrottlingParameterFromStreamingUrl
     // CHECKSTYLE:OFF
     private static final Pattern[] DEOBFUSCATION_FUNCTION_NAME_REGEXES = {
             /*
-             * The sixth regex matches the following text, where we want Yva and the array index
-             * accessed:
+             * Matches the following text, where we want m85:
              *
-             * b=Yva[0](b)
+             * m85=function( ... return Y[45]
              */
-            Pattern.compile(SINGLE_CHAR_VARIABLE_REGEX
-                    + "=(" + MULTIPLE_CHARS_REGEX + ")"  + ARRAY_ACCESS_REGEX + "\\("
-                    + SINGLE_CHAR_VARIABLE_REGEX + "\\)"),
-            /*
-             * The first regex matches the following text, where we want Wma and the array index
-             * accessed:
-             *
-             * a.D&&(b="nn"[+a.D],WL(a),c=a.j[b]||null)&&(c=SDa[0](c),a.set(b,c),SDa.length||Wma("")
-             */
-            Pattern.compile(SINGLE_CHAR_VARIABLE_REGEX + "=\"nn\"\\[\\+" + MULTIPLE_CHARS_REGEX
-                    + "\\." + MULTIPLE_CHARS_REGEX + "]," + MULTIPLE_CHARS_REGEX + "\\("
-                    + MULTIPLE_CHARS_REGEX + "\\)," + MULTIPLE_CHARS_REGEX + "="
-                    + MULTIPLE_CHARS_REGEX + "\\." + MULTIPLE_CHARS_REGEX + "\\["
-                    + MULTIPLE_CHARS_REGEX + "]\\|\\|null\\).+\\|\\|(" + MULTIPLE_CHARS_REGEX
-                    + ")\\(\"\"\\)"),
+            Pattern.compile("([A-Za-z0-9_\\$]{2,})=function.*return [A-Z]\\[\\d+\\]"),
+
 
             /*
-             * The second regex matches the following text, where we want SDa and the array index
-             * accessed:
+             * Matches the following text, where we want SDa and the array index accessed:
              *
              * a.D&&(b="nn"[+a.D],WL(a),c=a.j[b]||null)&&(c=SDa[0](c),a.set(b,c),SDa.length||Wma("")
              */
@@ -64,7 +51,33 @@ public final class YoutubeThrottlingParameterUtils {
                     + MULTIPLE_CHARS_REGEX + ")" + ARRAY_ACCESS_REGEX),
 
             /*
-             * The third regex matches the following text, where we want rma:
+             * Matches the following text, where we want Wma:
+             *
+             * a.D&&(b="nn"[+a.D],WL(a),c=a.j[b]||null)&&(c=SDa[0](c),a.set(b,c),SDa.length||Wma("")
+             */
+            Pattern.compile(SINGLE_CHAR_VARIABLE_REGEX + "=\"nn\"\\[\\+" + MULTIPLE_CHARS_REGEX
+                    + "\\." + MULTIPLE_CHARS_REGEX + "]," + MULTIPLE_CHARS_REGEX + "\\("
+                    + MULTIPLE_CHARS_REGEX + "\\)," + MULTIPLE_CHARS_REGEX + "="
+                    + MULTIPLE_CHARS_REGEX + "\\." + MULTIPLE_CHARS_REGEX + "\\["
+                    + MULTIPLE_CHARS_REGEX + "]\\|\\|null\\).+\\|\\|(" + MULTIPLE_CHARS_REGEX
+                    + ")\\(\"\"\\)"),
+
+            /*
+             * Matches the following text, where we want cvb and the array index accessed:
+             *
+             * ,Vb(m),W=m.j[c]||null)&&(W=cvb[0](W),m.set(c,W)
+             */
+            Pattern.compile("," + MULTIPLE_CHARS_REGEX + "\\("
+                    + MULTIPLE_CHARS_REGEX + "\\)," + MULTIPLE_CHARS_REGEX + "="
+                    + MULTIPLE_CHARS_REGEX + "\\." + MULTIPLE_CHARS_REGEX + "\\["
+                    + MULTIPLE_CHARS_REGEX + "]\\|\\|null\\)&&\\(\\b" + MULTIPLE_CHARS_REGEX + "=("
+                    + MULTIPLE_CHARS_REGEX + ")" + ARRAY_ACCESS_REGEX + "\\("
+                    + SINGLE_CHAR_VARIABLE_REGEX + "\\)," + MULTIPLE_CHARS_REGEX
+                    + "\\.set\\((?:\"n+\"|" + MULTIPLE_CHARS_REGEX + ")," + MULTIPLE_CHARS_REGEX
+                    + "\\)"),
+
+            /*
+             * Matches the following text, where we want rma:
              *
              * a.D&&(b="nn"[+a.D],c=a.get(b))&&(c=rDa[0](c),a.set(b,c),rDa.length||rma("")
              */
@@ -74,8 +87,7 @@ public final class YoutubeThrottlingParameterUtils {
                     + MULTIPLE_CHARS_REGEX + ")\\(\"\"\\)"),
 
             /*
-             * The fourth regex matches the following text, where we want rDa and the array index
-             * accessed:
+             * Matches the following text, where we want rDa and the array index accessed:
              *
              * a.D&&(b="nn"[+a.D],c=a.get(b))&&(c=rDa[0](c),a.set(b,c),rDa.length||rma("")
              */
@@ -85,8 +97,7 @@ public final class YoutubeThrottlingParameterUtils {
                     + MULTIPLE_CHARS_REGEX + "=(" + MULTIPLE_CHARS_REGEX + ")\\[(\\d+)]"),
 
             /*
-             * The fifth regex matches the following text, where we want BDa and the array index
-             * accessed:
+             * Matches the following text, where we want BDa and the array index accessed:
              *
              * (b=String.fromCharCode(110),c=a.get(b))&&(c=BDa[0](c)
              */
@@ -94,9 +105,34 @@ public final class YoutubeThrottlingParameterUtils {
                     + SINGLE_CHAR_VARIABLE_REGEX + "=" + SINGLE_CHAR_VARIABLE_REGEX + "\\.get\\("
                     + SINGLE_CHAR_VARIABLE_REGEX + "\\)\\)" + "&&\\(" + SINGLE_CHAR_VARIABLE_REGEX
                     + "=(" + MULTIPLE_CHARS_REGEX + ")" + "(?:" + ARRAY_ACCESS_REGEX + ")?\\("
-                    + SINGLE_CHAR_VARIABLE_REGEX + "\\)")
+                    + SINGLE_CHAR_VARIABLE_REGEX + "\\)"),
 
-};
+            /*
+             * Matches the following text, where we want Yva and the array index accessed:
+             *
+             * .get("n"))&&(b=Yva[0](b)
+             */
+            Pattern.compile("\\.get\\(\"n\"\\)\\)&&\\(" + SINGLE_CHAR_VARIABLE_REGEX
+                    + "=(" + MULTIPLE_CHARS_REGEX + ")(?:" + ARRAY_ACCESS_REGEX + ")?\\("
+                    + SINGLE_CHAR_VARIABLE_REGEX + "\\)"),
+
+            /*
+             * Additional patterns for 2026 obfuscation methods
+             * Matches patterns like: &&(c=Xab(c),a.set("n",c)
+             */
+            Pattern.compile("&&\\(" + SINGLE_CHAR_VARIABLE_REGEX + "=("
+                    + MULTIPLE_CHARS_REGEX + ")\\(" + SINGLE_CHAR_VARIABLE_REGEX
+                    + "\\)," + MULTIPLE_CHARS_REGEX + "\\.set\\(\"n\""),
+
+            /*
+             * Matches patterns with enhanced n parameter handling
+             * Example: b=a.get("n"),b&&(b=Zab[0](b),a.set("n",b)
+             */
+            Pattern.compile(SINGLE_CHAR_VARIABLE_REGEX + "=" + MULTIPLE_CHARS_REGEX
+                    + "\\.get\\(\"n\"\\)," + SINGLE_CHAR_VARIABLE_REGEX + "&&\\("
+                    + SINGLE_CHAR_VARIABLE_REGEX + "=(" + MULTIPLE_CHARS_REGEX + ")"
+                    + "(?:" + ARRAY_ACCESS_REGEX + ")?\\(" + SINGLE_CHAR_VARIABLE_REGEX + "\\)")
+    };
     // CHECKSTYLE:ON
 
 
@@ -139,12 +175,15 @@ public final class YoutubeThrottlingParameterUtils {
         try {
             matcher = matchMultiplePatterns(DEOBFUSCATION_FUNCTION_NAME_REGEXES,
                     javaScriptPlayerCode);
-        } catch (Exception e) {
+        } catch (final Parser.RegexException e) {
             throw new ParsingException("Could not find deobfuscation function with any of the "
                     + "known patterns in the base JavaScript player code", e);
         }
 
         final String functionName = matcher.group(1);
+        if (matcher.groupCount() == 1) {
+            return functionName;
+        }
 
         final int arrayNum = Integer.parseInt(matcher.group(2));
         final Pattern arrayPattern = Pattern.compile(
@@ -221,6 +260,11 @@ public final class YoutubeThrottlingParameterUtils {
      */
     @Nullable
     public static String getThrottlingParameterFromStreamingUrl(@Nonnull final String streamingUrl) {
+        // Do a quick check if the n parameter is even present, if not abort
+        // This improves performance by 60-900x
+        if (!streamingUrl.contains("&n=") && !streamingUrl.contains("?n=")) {
+            return null;
+        }
         try {
             return Parser.matchGroup1(THROTTLING_PARAM_PATTERN, streamingUrl);
         } catch (final Parser.RegexException e) {

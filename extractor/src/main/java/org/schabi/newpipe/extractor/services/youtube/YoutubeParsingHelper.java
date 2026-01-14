@@ -165,7 +165,7 @@ YoutubeParsingHelper {
      * such as <a href="https://www.apkmirror.com/apk/google-inc/youtube/">APKMirror</a>.
      * </p>
      */
-    private static final String ANDROID_YOUTUBE_CLIENT_VERSION = "19.28.35";
+    private static final String ANDROID_YOUTUBE_CLIENT_VERSION = "21.02.35";
 
     /**
      * The InnerTube API key used by the {@code ANDROID} client. Found with the help of
@@ -183,7 +183,7 @@ YoutubeParsingHelper {
      * Store page of the YouTube app</a>, in the {@code What’s New} section.
      * </p>
      */
-    private static final String IOS_YOUTUBE_CLIENT_VERSION = "19.45.4";
+    private static final String IOS_YOUTUBE_CLIENT_VERSION = "21.02.3";
 
     /**
      * The InnerTube API key used by the {@code iOS} client. Found with the help of
@@ -194,8 +194,8 @@ YoutubeParsingHelper {
     /**
      * The hardcoded client version used for InnerTube requests with the TV HTML5 embed client.
      */
-    private static final String TVHTML5_SIMPLY_EMBED_CLIENT_VERSION = "7.20250923.13.00";
-    private static final String WEB_CLIENT_VERSION = "2.20241126.01.00";
+    private static final String TVHTML5_SIMPLY_EMBED_CLIENT_VERSION = "7.20260114.15.00";
+    private static final String WEB_CLIENT_VERSION = "2.20260114.01.00";
 
     private static String clientVersion;
 
@@ -216,38 +216,38 @@ YoutubeParsingHelper {
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
     /**
-     * The device machine id for the iPhone 13, used to get 60fps with the {@code iOS} client.
+     * The device machine id for the iPhone 16 Pro Max, used to get 60fps with the {@code iOS} client.
      *
      * <p>
      * See <a href="https://gist.github.com/adamawolf/3048717">this GitHub Gist</a> for more
      * information.
      * </p>
      */
-    private static final String IOS_DEVICE_MODEL = "iPhone16,2";
+    private static final String IOS_DEVICE_MODEL = "iPhone17,2";
 
     /**
-     * Spoofing an iPhone 15 Pro Max running iOS 17.5.1 with the hardcoded version of the iOS app.
+     * Spoofing an iPhone 16 Pro Max running iOS 19.2 with the hardcoded version of the iOS app.
      * To be used for the {@code "osVersion"} field in JSON POST requests.
      * <p>
      * The value of this field seems to use the following structure:
      * "iOS major version.minor version.patch version.build version", where
      * "patch version" is equal to 0 if it isn't set
      * The build version corresponding to the iOS version used can be found on
-     * <a href="https://theapplewiki.com/wiki/Firmware/iPhone/17.x#iPhone_15_Pro_Max">
-     *     https://theapplewiki.com/wiki/Firmware/iPhone/17.x#iPhone_15_Pro_Max</a>
+     * <a href="https://theapplewiki.com/wiki/Firmware/iPhone/19.x#iPhone_16_Pro_Max">
+     *     https://theapplewiki.com/wiki/Firmware/iPhone/19.x#iPhone_16_Pro_Max</a>
      * </p>
      *
      * @see #IOS_USER_AGENT_VERSION
      */
-    private static final String IOS_OS_VERSION = "18.1.0.22B83";
+    private static final String IOS_OS_VERSION = "19.2.0.23A340";
 
     /**
-     * Spoofing an iPhone 15 running iOS 17.5.1 with the hardcoded version of the iOS app. To be
+     * Spoofing an iPhone 16 Pro Max running iOS 19.2 with the hardcoded version of the iOS app. To be
      * used in the user agent for requests.
      *
      * @see #IOS_OS_VERSION
      */
-    private static final String IOS_USER_AGENT_VERSION = "18_1_0";
+    private static final String IOS_USER_AGENT_VERSION = "19_2";
 
     private static Random numberGenerator = new Random();
 
@@ -1322,7 +1322,7 @@ YoutubeParsingHelper {
                 .value("clientScreen", "WATCH")
                 .value("platform", "MOBILE")
                 .value("osName", "Android")
-                .value("osVersion", "15")
+                .value("osVersion", "16")
                 .value("visitorData", visitorData)
                 /*
                 A valid Android SDK version is required to be sure to get a valid player
@@ -1335,7 +1335,7 @@ YoutubeParsingHelper {
                 The Android SDK version corresponding to the Android version used in
                 requests is sent
                 */
-                .value("androidSdkVersion", 35)
+                .value("androidSdkVersion", 36)
                 .value("hl", localization.getLocalizationCode())
                 .value("gl", contentCountry.getCountryCode())
                 .value("utcOffsetMinutes", 0)
@@ -1573,9 +1573,9 @@ YoutubeParsingHelper {
      */
     @Nonnull
     public static String getAndroidUserAgent(@Nullable final Localization localization) {
-        // Spoofing an Android 14 device with the hardcoded version of the Android app
+        // Spoofing an Android 16 device with the hardcoded version of the Android app
         return "com.google.android.youtube/" + ANDROID_YOUTUBE_CLIENT_VERSION
-                + " (Linux; U; Android 15; "
+                + " (Linux; U; Android 16; "
                 + (localization != null ? localization : Localization.DEFAULT).getCountryCode()
                 + ") gzip";
     }
@@ -1595,7 +1595,7 @@ YoutubeParsingHelper {
      */
     @Nonnull
     public static String getIosUserAgent(@Nullable final Localization localization) {
-        // Spoofing an iPhone 15 running iOS 17.5.1 with the hardcoded version of the iOS app
+        // Spoofing an iPhone 16 Pro Max running iOS 19.2 with the hardcoded version of the iOS app
         return "com.google.ios.youtube/" + IOS_YOUTUBE_CLIENT_VERSION
                 + "(" + IOS_DEVICE_MODEL + "; U; CPU iOS "
                 + IOS_USER_AGENT_VERSION + " like Mac OS X; "

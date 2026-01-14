@@ -19,31 +19,37 @@ final class ClientsConstants {
      * The client version for InnerTube requests with the {@code WEB} client, used as the last
      * fallback if the extraction of the real one failed.
      */
-    static final String WEB_HARDCODED_CLIENT_VERSION = "2.20250122.04.00";
+    static final String WEB_HARDCODED_CLIENT_VERSION = "2.20260114.01.00";
 
     // WEB_REMIX (YouTube Music) client fields
 
     static final String WEB_REMIX_CLIENT_ID = "67";
     static final String WEB_REMIX_CLIENT_NAME = "WEB_REMIX";
-    static final String WEB_REMIX_HARDCODED_CLIENT_VERSION = "1.20250122.01.00";
+    static final String WEB_REMIX_HARDCODED_CLIENT_VERSION = "1.20260114.01.00";
 
     // TVHTML5 (YouTube on TVs and consoles using HTML5) client fields
     static final String TVHTML5_CLIENT_ID = "7";
     static final String TVHTML5_CLIENT_NAME = "TVHTML5";
-    static final String TVHTML5_CLIENT_VERSION = "7.20250122.15.00";
+    static final String TVHTML5_CLIENT_VERSION = "7.20260114.15.00";
     static final String TVHTML5_CLIENT_PLATFORM = "GAME_CONSOLE";
     static final String TVHTML5_DEVICE_MAKE = "Sony";
-    static final String TVHTML5_DEVICE_MODEL_AND_OS_NAME = "PlayStation 4";
+    static final String TVHTML5_DEVICE_MODEL_AND_OS_NAME = "PlayStation 5";
     // CHECKSTYLE:OFF
     static final String TVHTML5_USER_AGENT =
-            "Mozilla/5.0 (PlayStation; PlayStation 4/12.00) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.4 Safari/605.1.15";
+            "Mozilla/5.0 (PlayStation; PlayStation 5/10.00) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15";
     // CHECKSTYLE:ON
 
     // WEB_EMBEDDED_PLAYER (YouTube embeds)
 
     static final String WEB_EMBEDDED_CLIENT_ID = "56";
     static final String WEB_EMBEDDED_CLIENT_NAME = "WEB_EMBEDDED_PLAYER";
-    static final String WEB_EMBEDDED_CLIENT_VERSION = "1.20250121.00.00";
+    static final String WEB_EMBEDDED_CLIENT_VERSION = "1.20260114.00.00";
+
+    // WEB_MUSIC_ANALYTICS (YouTube charts)
+
+    static final String WEB_MUSIC_ANALYTICS_CLIENT_ID = "31";
+    static final String WEB_MUSIC_ANALYTICS_CLIENT_NAME = "WEB_MUSIC_ANALYTICS";
+    static final String WEB_MUSIC_ANALYTICS_CLIENT_VERSION = "2.0";
 
     // IOS (iOS YouTube app) client fields
 
@@ -59,10 +65,10 @@ final class ClientsConstants {
      * Store page of the YouTube app</a>, in the {@code What’s New} section.
      * </p>
      */
-    static final String IOS_CLIENT_VERSION = "20.03.02";
+    static final String IOS_CLIENT_VERSION = "21.02.3";
 
     /**
-     * The device machine id for the iPhone 15 Pro Max, used to get 60fps with the {@code iOS}
+     * The device machine id for the iPhone 16 Pro Max, used to get 60fps with the {@code iOS}
      * client.
      *
      * <p>
@@ -70,24 +76,24 @@ final class ClientsConstants {
      * information.
      * </p>
      */
-    static final String IOS_DEVICE_MODEL = "iPhone16,2";
+    static final String IOS_DEVICE_MODEL = "iPhone17,2";
 
     /**
-     * The iOS version to be used in JSON POST requests, the one of an iPhone 15 Pro Max running
-     * iOS 18.2.1 with the hardcoded version of the iOS app (for the {@code "osVersion"} field).
+     * The iOS version to be used in JSON POST requests, the one of an iPhone 16 Pro Max running
+     * iOS 19.2 with the hardcoded version of the iOS app (for the {@code "osVersion"} field).
      *
      * <p>
      * The value of this field seems to use the following structure:
      * "iOS major version.minor version.patch version.build version", where
      * "patch version" is equal to 0 if it isn't set
      * The build version corresponding to the iOS version used can be found on
-     * <a href="https://theapplewiki.com/wiki/Firmware/iPhone/18.x#iPhone_15_Pro_Max">
-     *     https://theapplewiki.com/wiki/Firmware/iPhone/18.x#iPhone_15_Pro_Max</a>
+     * <a href="https://theapplewiki.com/wiki/Firmware/iPhone/19.x#iPhone_16_Pro_Max">
+     *     https://theapplewiki.com/wiki/Firmware/iPhone/19.x#iPhone_16_Pro_Max</a>
      * </p>
      *
      * @see #IOS_USER_AGENT_VERSION
      */
-    static final String IOS_OS_VERSION = "18.2.1.22C161";
+    static final String IOS_OS_VERSION = "19.2.0.23A340";
 
     /**
      * The iOS version to be used in the HTTP user agent for requests.
@@ -98,7 +104,7 @@ final class ClientsConstants {
      *
      * @see #IOS_OS_VERSION
      */
-    static final String IOS_USER_AGENT_VERSION = "18_2_1";
+    static final String IOS_USER_AGENT_VERSION = "19_2";
 
     // ANDROID (Android YouTube app) client fields
 
@@ -114,5 +120,5 @@ final class ClientsConstants {
      * such as <a href="https://www.apkmirror.com/apk/google-inc/youtube/">APKMirror</a>.
      * </p>
      */
-    static final String ANDROID_CLIENT_VERSION = "19.28.35";
+    static final String ANDROID_CLIENT_VERSION = "21.02.35";
 }
