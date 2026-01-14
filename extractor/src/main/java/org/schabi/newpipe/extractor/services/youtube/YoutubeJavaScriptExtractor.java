@@ -10,8 +10,11 @@ import org.schabi.newpipe.extractor.localization.Localization;
 import org.schabi.newpipe.extractor.utils.Parser;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -26,6 +29,11 @@ import java.util.regex.Pattern;
  * It will try to get the player URL from YouTube's IFrame resource first, and from a YouTube embed
  * watch page as a fallback.
  * </p>
+ *
+ * <p>
+ * Updated for 2026 with improved caching, retry logic, and error handling to prevent
+ * "unknown error" issues.
+ * </p>
  */
 final class YoutubeJavaScriptExtractor {
 
@@ -37,14 +45,21 @@ final class YoutubeJavaScriptExtractor {
     private static final Pattern EMBEDDED_WATCH_PAGE_JS_BASE_PLAYER_URL_PATTERN = Pattern.compile(
             "\"jsUrl\":\"(/s/player/[A-Za-z0-9]+/player_ias\\.vflset/[A-Za-z_-]+/base\\.js)\"");
 
+    // Additional patterns for 2026 player URL extraction
+    private static final Pattern PLAYER_JS_URL_PATTERN = Pattern.compile(
+            "/s/player/([a-z0-9]{8})/");
+    private static final Pattern ALT_PLAYER_HASH_PATTERN = Pattern.compile(
+            "\"PLAYER_JS_URL\"\\s*:\\s*\"/s/player/([a-z0-9]{8})/");
 
-    // Override hash - set this to force a specific player version
+    // Cache for player ID to avoid repeated network calls
+    @Nullable
+    private static String cachedPlayerId = null;
+    private static long cacheTimestamp = 0;
+    private static final long CACHE_DURATION_MS = 3600000; // 1 hour
 
-
-    // Set to null to use the default behavior (extract from YouTube)
-
-
-    private static final String OVERRIDE_PLAYER_HASH = "";
+    // Retry configuration
+    private static final int MAX_RETRIES = 3;
+    private static final int RETRY_DELAY_MS = 500;
 
     private YoutubeJavaScriptExtractor() {
     }
@@ -57,51 +72,157 @@ final class YoutubeJavaScriptExtractor {
      * It is used for API-based decoding of signatures and throttling parameters.
      * </p>
      *
+     * <p>
+     * Updated for 2026 with caching and improved retry logic.
+     * </p>
+     *
      * @param videoId the video ID (can be empty, but not recommended)
      * @return the 8-character player ID/hash
      * @throws ParsingException if the extraction of the player ID failed
      */
     @Nonnull
     static String extractPlayerId(@Nonnull final String videoId) throws ParsingException {
-        // Use override if available
-        if (OVERRIDE_PLAYER_HASH != null && !OVERRIDE_PLAYER_HASH.isEmpty()) {
-            return OVERRIDE_PLAYER_HASH;
+        // Check cache first
+        if (cachedPlayerId != null && !isCacheExpired()) {
+            return cachedPlayerId;
         }
 
+        ParsingException lastException = null;
+
+        for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            try {
+                final String playerId = extractPlayerIdInternal(videoId);
+                // Update cache
+                cachedPlayerId = playerId;
+                cacheTimestamp = System.currentTimeMillis();
+                return playerId;
+            } catch (final ParsingException e) {
+                lastException = e;
+                // Wait before retry
+                if (attempt < MAX_RETRIES - 1) {
+                    try {
+                        Thread.sleep(RETRY_DELAY_MS * (attempt + 1));
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new ParsingException("Interrupted during player ID extraction retry", ie);
+                    }
+                }
+            }
+        }
+
+        throw new ParsingException("Could not extract player ID after " + MAX_RETRIES + " attempts", lastException);
+    }
+
+    /**
+     * Internal method to extract player ID with multiple fallback strategies.
+     */
+    @Nonnull
+    private static String extractPlayerIdInternal(@Nonnull final String videoId) throws ParsingException {
+        // Strategy 1: Try IFrame resource
         try {
-            // Try to extract from IFrame resource
             final String iframeUrl = "https://www.youtube.com/iframe_api";
             final String iframeContent = NewPipe.getDownloader()
                     .get(iframeUrl, Localization.DEFAULT)
                     .responseBody();
 
-            return Parser.matchGroup1(IFRAME_RES_JS_BASE_PLAYER_HASH_PATTERN, iframeContent);
-        } catch (final Exception e) {
-            // Fallback to embed page
-            try {
-                final String embedUrl = "https://www.youtube.com/embed/" + videoId;
-                final String embedPageContent = NewPipe.getDownloader()
-                        .get(embedUrl, Localization.DEFAULT)
-                        .responseBody();
-
-                final String jsUrl = Parser.matchGroup1(
-                        EMBEDDED_WATCH_PAGE_JS_BASE_PLAYER_URL_PATTERN, embedPageContent);
-
-                // Extract hash from URL like "/s/player/0004de42/player_ias.vflset/..."
-                return Parser.matchGroup1(IFRAME_RES_JS_BASE_PLAYER_HASH_PATTERN,
-                        jsUrl.replace("\\/", "/"));
-            } catch (final Exception ex) {
-                // Last resort: return the hardcoded override value
-                if (OVERRIDE_PLAYER_HASH != null && !OVERRIDE_PLAYER_HASH.isEmpty()) {
-                    return OVERRIDE_PLAYER_HASH;
+            if (iframeContent != null && !iframeContent.isEmpty()) {
+                final String hash = Parser.matchGroup1(IFRAME_RES_JS_BASE_PLAYER_HASH_PATTERN, iframeContent);
+                if (hash != null && hash.length() == 8) {
+                    return hash;
                 }
-                throw new ParsingException("Could not extract player ID", ex);
             }
+        } catch (final Exception ignored) {
+            // Try next strategy
         }
+
+        // Strategy 2: Try embed page
+        try {
+            final String embedUrl = "https://www.youtube.com/embed/" + videoId;
+            final String embedPageContent = NewPipe.getDownloader()
+                    .get(embedUrl, Localization.DEFAULT)
+                    .responseBody();
+
+            if (embedPageContent != null && !embedPageContent.isEmpty()) {
+                // Try jsUrl pattern first
+                try {
+                    final String jsUrl = Parser.matchGroup1(
+                            EMBEDDED_WATCH_PAGE_JS_BASE_PLAYER_URL_PATTERN, embedPageContent);
+                    final String hash = Parser.matchGroup1(PLAYER_JS_URL_PATTERN, jsUrl);
+                    if (hash != null && hash.length() == 8) {
+                        return hash;
+                    }
+                } catch (final Exception ignored) {
+                    // Try alternative pattern
+                }
+
+                // Try alternative pattern
+                try {
+                    final String hash = Parser.matchGroup1(ALT_PLAYER_HASH_PATTERN, embedPageContent);
+                    if (hash != null && hash.length() == 8) {
+                        return hash;
+                    }
+                } catch (final Exception ignored) {
+                    // Continue to next strategy
+                }
+            }
+        } catch (final Exception ignored) {
+            // Try next strategy
+        }
+
+        // Strategy 3: Try watch page
+        try {
+            final String watchUrl = "https://www.youtube.com/watch?v=" + videoId;
+            final String watchPageContent = NewPipe.getDownloader()
+                    .get(watchUrl, Localization.DEFAULT)
+                    .responseBody();
+
+            if (watchPageContent != null && !watchPageContent.isEmpty()) {
+                try {
+                    final String hash = Parser.matchGroup1(ALT_PLAYER_HASH_PATTERN, watchPageContent);
+                    if (hash != null && hash.length() == 8) {
+                        return hash;
+                    }
+                } catch (final Exception ignored) {
+                    // Continue
+                }
+
+                try {
+                    final String hash = Parser.matchGroup1(PLAYER_JS_URL_PATTERN, watchPageContent);
+                    if (hash != null && hash.length() == 8) {
+                        return hash;
+                    }
+                } catch (final Exception ignored) {
+                    // Continue
+                }
+            }
+        } catch (final Exception ignored) {
+            // All strategies failed
+        }
+
+        throw new ParsingException("Could not extract player ID using any strategy");
+    }
+
+    /**
+     * Check if the cached player ID has expired.
+     */
+    private static boolean isCacheExpired() {
+        return System.currentTimeMillis() - cacheTimestamp > CACHE_DURATION_MS;
+    }
+
+    /**
+     * Clear the cached player ID.
+     */
+    static void clearCache() {
+        cachedPlayerId = null;
+        cacheTimestamp = 0;
     }
 
     /**
      * Extracts the JavaScript base player file.
+     *
+     * <p>
+     * Updated for 2026 with improved retry logic and multiple fallback strategies.
+     * </p>
      *
      * @param videoId the video ID used to get the JavaScript base player file (an empty one can be
      *                passed, even it is not recommend in order to spoof better official YouTube
@@ -112,37 +233,62 @@ final class YoutubeJavaScriptExtractor {
     @Nonnull
     static String extractJavaScriptPlayerCode(@Nonnull final String videoId)
             throws ParsingException {
-        if (OVERRIDE_PLAYER_HASH != null && !OVERRIDE_PLAYER_HASH.isEmpty()) {
-            final String playerJsUrl = String.format(BASE_JS_PLAYER_URL_FORMAT, OVERRIDE_PLAYER_HASH);
+        ParsingException lastException = null;
+
+        for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
             try {
-                new URL(playerJsUrl);
-                return YoutubeJavaScriptExtractor.downloadJavaScriptCode(playerJsUrl);
-            } catch (final MalformedURLException e) {
-                throw new ParsingException("The override player hash produced an invalid URL", e);
+                return extractJavaScriptPlayerCodeInternal(videoId);
+            } catch (final ParsingException e) {
+                lastException = e;
+                // Wait before retry
+                if (attempt < MAX_RETRIES - 1) {
+                    try {
+                        Thread.sleep(RETRY_DELAY_MS * (attempt + 1));
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new ParsingException("Interrupted during JavaScript extraction retry", ie);
+                    }
+                }
             }
         }
-        String url;
+
+        throw new ParsingException("Could not extract JavaScript player code after " + MAX_RETRIES + " attempts", lastException);
+    }
+
+    /**
+     * Internal method to extract JavaScript player code with multiple strategies.
+     */
+    @Nonnull
+    private static String extractJavaScriptPlayerCodeInternal(@Nonnull final String videoId)
+            throws ParsingException {
+        // Strategy 1: Try IFrame resource
         try {
-            url = YoutubeJavaScriptExtractor.extractJavaScriptUrlWithIframeResource();
-            final String playerJsUrl = YoutubeJavaScriptExtractor.cleanJavaScriptUrl(url);
+            final String url = extractJavaScriptUrlWithIframeResource();
+            final String playerJsUrl = cleanJavaScriptUrl(url);
+            new URL(playerJsUrl); // Validate URL
+            return downloadJavaScriptCode(playerJsUrl);
+        } catch (final Exception ignored) {
+            // Try next strategy
+        }
 
-            // Assert that the URL we extracted and built is valid
-            new URL(playerJsUrl);
+        // Strategy 2: Try embed watch page
+        try {
+            final String url = extractJavaScriptUrlWithEmbedWatchPage(videoId);
+            final String playerJsUrl = cleanJavaScriptUrl(url);
+            new URL(playerJsUrl); // Validate URL
+            return downloadJavaScriptCode(playerJsUrl);
+        } catch (final Exception ignored) {
+            // Try next strategy
+        }
 
-            return YoutubeJavaScriptExtractor.downloadJavaScriptCode(playerJsUrl);
+        // Strategy 3: Use player ID to construct URL
+        try {
+            final String playerId = extractPlayerId(videoId);
+            final String playerJsUrl = String.format(BASE_JS_PLAYER_URL_FORMAT, playerId);
+            new URL(playerJsUrl); // Validate URL
+            return downloadJavaScriptCode(playerJsUrl);
         } catch (final Exception e) {
-            url = YoutubeJavaScriptExtractor.extractJavaScriptUrlWithEmbedWatchPage(videoId);
-            final String playerJsUrl = YoutubeJavaScriptExtractor.cleanJavaScriptUrl(url);
-
-            try {
-                // Assert that the URL we extracted and built is valid
-                new URL(playerJsUrl);
-            } catch (final MalformedURLException exception) {
-                throw new ParsingException(
-                        "The extracted and built JavaScript URL is invalid", exception);
-            }
-
-            return YoutubeJavaScriptExtractor.downloadJavaScriptCode("https://www.youtube.com/s/player/0004de42/player_ias.vflset/en_GB/base.js");
+            throw new ParsingException("Could not extract JavaScript player code using any strategy", e);
         }
     }
 
