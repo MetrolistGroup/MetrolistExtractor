@@ -43,8 +43,13 @@ final class ClientsConstants {
 
     static final String WEB_EMBEDDED_CLIENT_ID = "56";
     static final String WEB_EMBEDDED_CLIENT_NAME = "WEB_EMBEDDED_PLAYER";
-    static final String WEB_EMBEDDED_CLIENT_VERSION = "1.20260114.00.00";
+    static final String WEB_EMBEDDED_CLIENT_VERSION = "1.20250105.00.00";
 
+    // WEB_MUSIC_ANALYTICS (YouTube charts)
+
+    static final String WEB_MUSIC_ANALYTICS_CLIENT_ID = "31";
+    static final String WEB_MUSIC_ANALYTICS_CLIENT_NAME = "WEB_MUSIC_ANALYTICS";
+    static final String WEB_MUSIC_ANALYTICS_CLIENT_VERSION = "2.0";
     // IOS (iOS YouTube app) client fields
 
     static final String IOS_CLIENT_ID = "5";
