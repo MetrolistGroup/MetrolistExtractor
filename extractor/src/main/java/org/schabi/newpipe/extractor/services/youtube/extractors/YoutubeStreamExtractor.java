@@ -1673,9 +1673,14 @@ public class YoutubeStreamExtractor extends StreamExtractor {
      * Batch deobfuscate signatures and throttling parameters for all ItagInfo objects.
      * This replaces individual API calls with a single batch request.
      *
+     * <p>
+     * Updated for 2026 with improved error handling and retry logic to prevent
+     * "unknown error" issues that occur when cache is stale or API calls fail.
+     * </p>
+     *
      * @param videoId      the video ID
      * @param itagInfoList list of ItagInfo objects to process
-     * @throws ParsingException if batch deobfuscation fails
+     * @throws ParsingException if batch deobfuscation fails after all retries
      */
     private void batchDeobfuscateItagUrls(@Nonnull final String videoId,
                                           @Nonnull final List<ItagInfo> itagInfoList)
@@ -1719,12 +1724,43 @@ public class YoutubeStreamExtractor extends StreamExtractor {
             return;
         }
 
-        // Make batch API call
-        final YoutubeApiDecoder.BatchDecodeResult result =
-            YoutubeJavaScriptPlayerManager.deobfuscateBatch(
-                videoId,
-                new ArrayList<>(uniqueSignatures),
-                new ArrayList<>(uniqueThrottlingParams));
+        // Make batch API call with retry logic
+        YoutubeApiDecoder.BatchDecodeResult result = null;
+        ParsingException lastException = null;
+        final int maxRetries = 2;
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                result = YoutubeJavaScriptPlayerManager.deobfuscateBatch(
+                    videoId,
+                    new ArrayList<>(uniqueSignatures),
+                    new ArrayList<>(uniqueThrottlingParams));
+                break; // Success, exit retry loop
+            } catch (final ParsingException e) {
+                lastException = e;
+                // On first failure, clear cache and retry
+                if (attempt == 0) {
+                    YoutubeJavaScriptPlayerManager.clearAllCaches();
+                }
+                // Add small delay before retry
+                if (attempt < maxRetries) {
+                    try {
+                        Thread.sleep(300 * (attempt + 1));
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new ParsingException("Interrupted during deobfuscation retry", ie);
+                    }
+                }
+            }
+        }
+
+        if (result == null) {
+            // All retries failed - throw with detailed error message
+            throw new ParsingException(
+                "Failed to deobfuscate stream URLs after " + (maxRetries + 1) + " attempts. " +
+                "This may be caused by outdated player data. Please clear app cache and try again.",
+                lastException);
+        }
 
         final Map<String, String> decodedSignatures = result.getSignatures();
         final Map<String, String> decodedThrottling = result.getNParameters();
@@ -1739,6 +1775,10 @@ public class YoutubeStreamExtractor extends StreamExtractor {
                 final String deobfuscatedSig = decodedSignatures.get(info.obfuscatedSignature);
                 if (deobfuscatedSig != null) {
                     updatedUrl = updatedUrl.replace("SIGNATURE_PLACEHOLDER", deobfuscatedSig);
+                } else {
+                    // Log warning but don't fail - stream might still work
+                    errors.add(new ParsingException(
+                        "Could not deobfuscate signature for stream " + info.streamIndex));
                 }
             }
 
@@ -1747,6 +1787,10 @@ public class YoutubeStreamExtractor extends StreamExtractor {
                 final String deobfuscatedParam = decodedThrottling.get(info.throttlingParam);
                 if (deobfuscatedParam != null) {
                     updatedUrl = updatedUrl.replace(info.throttlingParam, deobfuscatedParam);
+                } else {
+                    // Log warning but don't fail - stream might still work (just throttled)
+                    errors.add(new ParsingException(
+                        "Could not deobfuscate throttling parameter for stream " + info.streamIndex));
                 }
             }
 
