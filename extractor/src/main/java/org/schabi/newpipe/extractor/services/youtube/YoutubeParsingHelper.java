@@ -1418,15 +1418,21 @@ YoutubeParsingHelper {
             @Nonnull final ContentCountry contentCountry,
             @Nonnull final String videoId) {
         // @formatter:off
+        // Use TVHTML5_SIMPLY_EMBEDDED_PLAYER to bypass age restrictions
+        // This client can play age-restricted content without login
         return JsonObject.builder()
                 .object("context")
-                .object("client")
-                .value("clientName", "TVHTML5")
-                .value("clientVersion", TVHTML5_SIMPLY_EMBED_CLIENT_VERSION)
-                .value("hl", localization.getLocalizationCode())
-                .value("gl", contentCountry.getCountryCode())
-                .value("utcOffsetMinutes", 0)
-                .end()
+                    .object("client")
+                        .value("clientName", "TVHTML5_SIMPLY_EMBEDDED_PLAYER")
+                        .value("clientVersion", TVHTML5_SIMPLY_EMBED_CLIENT_VERSION)
+                        .value("clientScreen", "EMBED")
+                        .value("hl", localization.getLocalizationCode())
+                        .value("gl", contentCountry.getCountryCode())
+                        .value("utcOffsetMinutes", 0)
+                    .end()
+                    .object("thirdParty")
+                        .value("embedUrl", "https://www.youtube.com/watch?v=" + videoId)
+                    .end()
                 .end();
         // @formatter:on
     }

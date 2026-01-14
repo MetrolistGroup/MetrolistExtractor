@@ -945,6 +945,8 @@ public class YoutubeStreamExtractor extends StreamExtractor {
 
         if (StringUtils.isBlank(ServiceList.YouTube.getTokens())) {
             androidCall = fetchAndroidMobileJsonPlayer(contentCountry, localization, videoId);
+            // Also fetch TVHTML5 embed player for age-restricted content fallback
+            tvCall = fetchTvHtml5EmbedJsonPlayer(contentCountry, localization, videoId);
         } else {
             tvCall = fetchTvHtml5EmbedJsonPlayer(contentCountry, localization, videoId);
             webCall = fetchWebJsonPlayer(contentCountry, localization, videoId);
@@ -983,14 +985,16 @@ public class YoutubeStreamExtractor extends StreamExtractor {
         });
         long startTime = System.nanoTime();
         do {
-            if (((StringUtils.isBlank(ServiceList.YouTube.getTokens()) && androidCall.isFinished())
+            if (((StringUtils.isBlank(ServiceList.YouTube.getTokens()) && androidCall.isFinished() && tvCall.isFinished())
                     || (StringUtils.isNotBlank(ServiceList.YouTube.getTokens()) && webCall.isFinished() && tvCall.isFinished())) &&
                     webPageCall.isFinished() && nextDataCall.isFinished()) {
                 break;
             }
         } while (TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - startTime) <= ServiceList.YouTube.getLoadingTimeout());
 
-        if (((StringUtils.isBlank(ServiceList.YouTube.getTokens()) && androidStreamingData == null)
+        // Check if we have streaming data from any source
+        // For age-restricted content, tvHtml5SimplyEmbedStreamingData should be available
+        if (((StringUtils.isBlank(ServiceList.YouTube.getTokens()) && androidStreamingData == null && tvHtml5SimplyEmbedStreamingData == null)
                 || ((StringUtils.isNotBlank(ServiceList.YouTube.getTokens()) && webStreamingData == null && tvHtml5SimplyEmbedStreamingData == null)))
                 || getStreamType() == null || nextResponse == null) {
             for (Throwable e: errors) {
@@ -1036,8 +1040,10 @@ public class YoutubeStreamExtractor extends StreamExtractor {
                     throw new PrivateContentException("This video is private");
                 }
             } else if (reason.contains("age")) {
-                throw new AgeRestrictedContentException(
-                        "This age-restricted video cannot be watched anonymously");
+                // For age-restricted content, we'll try to use TVHTML5 embed player
+                // Don't throw exception here - let the extraction continue with embed player
+                // The TVHTML5 embed player can bypass age restrictions
+                return null;
             }
         }
 
@@ -1374,15 +1380,13 @@ public class YoutubeStreamExtractor extends StreamExtractor {
 
             java.util.stream.Stream.of(
                      /*
-                    Use the iosStreamingData object first because there is no n param and no
-                    signatureCiphers in streaming URLs of the iOS client
-                    The androidStreamingData is used as second way as it isn't used on livestreams,
-                    it doesn't return all available streams, and the Android client extraction is
-                    more likely to break
-                    As age-restricted videos are not common, use tvHtml5SimplyEmbedStreamingData
-                    last, which will be the only one not empty for age-restricted content
+                    Use androidStreamingData first as it's the most reliable for non-age-restricted content.
+                    Use webStreamingData as second option when logged in.
+                    Use tvHtml5SimplyEmbedStreamingData for age-restricted content - this embed player
+                    can bypass age restrictions without requiring login.
                      */
                     new Pair<>(androidStreamingData, androidCpn),
+                    new Pair<>(webStreamingData, webCpn),
                     new Pair<>(tvHtml5SimplyEmbedStreamingData, tvHtml5SimplyEmbedCpn)
 
             )
