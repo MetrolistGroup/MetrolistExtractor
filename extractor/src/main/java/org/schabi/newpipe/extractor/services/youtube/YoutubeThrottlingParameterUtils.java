@@ -114,7 +114,24 @@ public final class YoutubeThrottlingParameterUtils {
              */
             Pattern.compile("\\.get\\(\"n\"\\)\\)&&\\(" + SINGLE_CHAR_VARIABLE_REGEX
                     + "=(" + MULTIPLE_CHARS_REGEX + ")(?:" + ARRAY_ACCESS_REGEX + ")?\\("
-                    + SINGLE_CHAR_VARIABLE_REGEX + "\\)")
+                    + SINGLE_CHAR_VARIABLE_REGEX + "\\)"),
+
+            /*
+             * Additional patterns for 2026 obfuscation methods
+             * Matches patterns like: &&(c=Xab(c),a.set("n",c)
+             */
+            Pattern.compile("&&\\(" + SINGLE_CHAR_VARIABLE_REGEX + "=("
+                    + MULTIPLE_CHARS_REGEX + ")\\(" + SINGLE_CHAR_VARIABLE_REGEX
+                    + "\\)," + MULTIPLE_CHARS_REGEX + "\\.set\\(\"n\""),
+
+            /*
+             * Matches patterns with enhanced n parameter handling
+             * Example: b=a.get("n"),b&&(b=Zab[0](b),a.set("n",b)
+             */
+            Pattern.compile(SINGLE_CHAR_VARIABLE_REGEX + "=" + MULTIPLE_CHARS_REGEX
+                    + "\\.get\\(\"n\"\\)," + SINGLE_CHAR_VARIABLE_REGEX + "&&\\("
+                    + SINGLE_CHAR_VARIABLE_REGEX + "=(" + MULTIPLE_CHARS_REGEX + ")"
+                    + "(?:" + ARRAY_ACCESS_REGEX + ")?\\(" + SINGLE_CHAR_VARIABLE_REGEX + "\\)")
     };
     // CHECKSTYLE:ON
 
