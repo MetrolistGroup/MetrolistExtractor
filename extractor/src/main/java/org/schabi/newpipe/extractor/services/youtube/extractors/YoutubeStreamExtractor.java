@@ -1039,10 +1039,16 @@ public class YoutubeStreamExtractor extends StreamExtractor {
                 if (message != null && message.contains("private")) {
                     throw new PrivateContentException("This video is private");
                 }
-            } else if (reason.contains("age")) {
+                // For other login_required cases without reason, try TVHTML5 embed player
+                return null;
+            } else if (reason.contains("age") || reason.contains("Age") || 
+                       reason.contains("confirm your age") || reason.contains("age-restricted")) {
                 // For age-restricted content, we'll try to use TVHTML5 embed player
                 // Don't throw exception here - let the extraction continue with embed player
                 // The TVHTML5 embed player can bypass age restrictions
+                return null;
+            } else if (reason.contains("Sign in")) {
+                // Generic sign-in required - might be age-restricted, try embed player
                 return null;
             }
         }
@@ -1263,6 +1269,19 @@ public class YoutubeStreamExtractor extends StreamExtractor {
                 JsonObject tvHtml5EmbedPlayerResponse = null;
                 try {
                     tvHtml5EmbedPlayerResponse = JsonUtils.toJsonObject(getValidJsonResponseBody(response));
+                    
+                    // Check playability status first
+                    final JsonObject playabilityStatus = tvHtml5EmbedPlayerResponse.getObject("playabilityStatus");
+                    final String status = playabilityStatus.getString("status");
+                    if (status != null && !status.equalsIgnoreCase("ok")) {
+                        final String reason = playabilityStatus.getString("reason");
+                        if (reason != null && reason.contains("Sign in to confirm")) {
+                            throw new AntiBotException("TVHTML5 player: " + reason);
+                        }
+                        // For other errors, log but don't throw - streaming data might still be available
+                        // or we'll fall back to other sources
+                    }
+                    
                     if (isPlayerResponseNotValid(tvHtml5EmbedPlayerResponse, videoId)) {
                         if (tvHtml5EmbedPlayerResponse.toString().contains("Sign in to confirm")) {
                             throw new AntiBotException("TVHTML5 player response is not valid");

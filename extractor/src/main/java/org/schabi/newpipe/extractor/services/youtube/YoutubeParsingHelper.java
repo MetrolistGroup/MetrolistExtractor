@@ -1420,6 +1420,7 @@ YoutubeParsingHelper {
         // @formatter:off
         // Use TVHTML5_SIMPLY_EMBEDDED_PLAYER to bypass age restrictions
         // This client can play age-restricted content without login
+        // The embedUrl should be https://www.youtube.com for the embed context
         return JsonObject.builder()
                 .object("context")
                     .object("client")
@@ -1431,7 +1432,7 @@ YoutubeParsingHelper {
                         .value("utcOffsetMinutes", 0)
                     .end()
                     .object("thirdParty")
-                        .value("embedUrl", "https://www.youtube.com/watch?v=" + videoId)
+                        .value("embedUrl", "https://www.youtube.com")
                     .end()
                 .end();
         // @formatter:on
