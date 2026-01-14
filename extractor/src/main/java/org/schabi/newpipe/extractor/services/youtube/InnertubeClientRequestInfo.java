@@ -16,8 +16,11 @@ import static org.schabi.newpipe.extractor.services.youtube.ClientsConstants.WEB
 import static org.schabi.newpipe.extractor.services.youtube.ClientsConstants.WEB_CLIENT_NAME;
 import static org.schabi.newpipe.extractor.services.youtube.ClientsConstants.WEB_EMBEDDED_CLIENT_ID;
 import static org.schabi.newpipe.extractor.services.youtube.ClientsConstants.WEB_EMBEDDED_CLIENT_NAME;
+import static org.schabi.newpipe.extractor.services.youtube.ClientsConstants.WEB_EMBEDDED_CLIENT_VERSION;
 import static org.schabi.newpipe.extractor.services.youtube.ClientsConstants.WEB_HARDCODED_CLIENT_VERSION;
-import static org.schabi.newpipe.extractor.services.youtube.ClientsConstants.WEB_REMIX_HARDCODED_CLIENT_VERSION;
+import static org.schabi.newpipe.extractor.services.youtube.ClientsConstants.WEB_MUSIC_ANALYTICS_CLIENT_ID;
+import static org.schabi.newpipe.extractor.services.youtube.ClientsConstants.WEB_MUSIC_ANALYTICS_CLIENT_NAME;
+import static org.schabi.newpipe.extractor.services.youtube.ClientsConstants.WEB_MUSIC_ANALYTICS_CLIENT_VERSION;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -106,9 +109,19 @@ public final class InnertubeClientRequestInfo {
     public static InnertubeClientRequestInfo ofWebEmbeddedPlayerClient() {
         return new InnertubeClientRequestInfo(
                 new InnertubeClientRequestInfo.ClientInfo(WEB_EMBEDDED_CLIENT_NAME,
-                        WEB_REMIX_HARDCODED_CLIENT_VERSION, EMBED_CLIENT_SCREEN,
+                        WEB_EMBEDDED_CLIENT_VERSION, EMBED_CLIENT_SCREEN,
                         WEB_EMBEDDED_CLIENT_ID, null),
                 new InnertubeClientRequestInfo.DeviceInfo(DESKTOP_CLIENT_PLATFORM, null, null,
+                        null, null, -1));
+    }
+
+    @Nonnull
+    public static InnertubeClientRequestInfo ofWebMusicAnalyticsChartsClient() {
+        return new InnertubeClientRequestInfo(
+                new InnertubeClientRequestInfo.ClientInfo(WEB_MUSIC_ANALYTICS_CLIENT_NAME,
+                        WEB_MUSIC_ANALYTICS_CLIENT_VERSION, null,
+                        WEB_MUSIC_ANALYTICS_CLIENT_ID, null),
+                new InnertubeClientRequestInfo.DeviceInfo(null, null, null,
                         null, null, -1));
     }
 
