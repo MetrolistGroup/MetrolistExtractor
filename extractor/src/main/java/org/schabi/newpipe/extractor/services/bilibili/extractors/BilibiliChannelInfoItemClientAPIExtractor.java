@@ -20,8 +20,8 @@ import java.util.Optional;
 public class BilibiliChannelInfoItemClientAPIExtractor implements StreamInfoItemExtractor {
 
     protected final JsonObject item;
-    public String name;
-    public String face;
+    private final String name;
+    private final String face;
 
     public BilibiliChannelInfoItemClientAPIExtractor(final JsonObject json, String name, String face) {
         item = json;
@@ -64,7 +64,7 @@ public class BilibiliChannelInfoItemClientAPIExtractor implements StreamInfoItem
 
     @Override
     public String getUploaderName() throws ParsingException {
-        return name;
+        return Optional.ofNullable(item.getString("author")).orElse(name);
     }
 
     @Override

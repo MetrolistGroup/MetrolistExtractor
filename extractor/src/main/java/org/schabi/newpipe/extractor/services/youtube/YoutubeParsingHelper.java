@@ -161,7 +161,7 @@ YoutubeParsingHelper {
      * such as <a href="https://www.apkmirror.com/apk/google-inc/youtube/">APKMirror</a>.
      * </p>
      */
-    private static final String ANDROID_YOUTUBE_CLIENT_VERSION = "19.28.35";
+    private static final String ANDROID_YOUTUBE_CLIENT_VERSION = "21.03.36";
 
     /**
      * The InnerTube API key used by the {@code ANDROID} client. Found with the help of
@@ -1040,7 +1040,16 @@ YoutubeParsingHelper {
             JsonArray thumbnails = infoItem.getObject("thumbnail").getArray("thumbnails");
             return fixThumbnailUrl(thumbnails.getObject(thumbnails.size() - 1).getString("url"));
         } catch (final Exception e) {
-            throw new ParsingException("Could not get thumbnail url", e);
+            // lockupViewModel format
+            try {
+                JsonArray thumbnails = infoItem.getObject("contentImage")
+                        .getObject("thumbnailViewModel")
+                        .getObject("image")
+                        .getArray("sources");
+                return fixThumbnailUrl(thumbnails.getObject(thumbnails.size() - 1).getString("url"));
+            } catch (final Exception e2) {
+                throw new ParsingException("Could not get thumbnail url", e2);
+            }
         }
     }
 
@@ -1318,7 +1327,7 @@ YoutubeParsingHelper {
                 .value("clientScreen", "WATCH")
                 .value("platform", "MOBILE")
                 .value("osName", "Android")
-                .value("osVersion", "15")
+                .value("osVersion", "16")
                 .value("visitorData", visitorData)
                 /*
                 A valid Android SDK version is required to be sure to get a valid player
@@ -1331,7 +1340,7 @@ YoutubeParsingHelper {
                 The Android SDK version corresponding to the Android version used in
                 requests is sent
                 */
-                .value("androidSdkVersion", 35)
+                .value("androidSdkVersion", 36)
                 .value("hl", localization.getLocalizationCode())
                 .value("gl", contentCountry.getCountryCode())
                 .value("utcOffsetMinutes", 0)
@@ -1474,7 +1483,15 @@ YoutubeParsingHelper {
                         try {
                             webPlayerResponse = JsonUtils.toJsonObject(getValidJsonResponseBody(response));
                             if (Objects.equals(webPlayerResponse.getObject("playabilityStatus").getString("status"), "LOGIN_REQUIRED")) {
-                                throw new AntiBotException(webPlayerResponse.getObject("playabilityStatus").getString("reason"));
+                                final JsonObject playabilityStatus = webPlayerResponse.getObject("playabilityStatus");
+                                final String reason = playabilityStatus.getString("reason");
+                                if (reason != null && (reason.contains("age") || reason.contains("inappropriate"))) {
+                                    throw new AgeRestrictedContentException("This age-restricted video cannot be watched anonymously");
+                                }
+                                if (playabilityStatus.has("desktopLegacyAgeGateReason")) {
+                                    throw new AgeRestrictedContentException("This age-restricted video cannot be watched anonymously");
+                                }
+                                throw new AntiBotException(reason);
                             }
                             if (isPlayerResponseNotValid(webPlayerResponse, videoId)) {
                                 throw new ExtractionException("Initial WEB player response is not valid");

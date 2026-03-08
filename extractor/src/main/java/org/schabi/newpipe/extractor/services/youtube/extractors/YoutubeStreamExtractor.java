@@ -25,6 +25,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.schabi.newpipe.extractor.*;
+import org.schabi.newpipe.extractor.channel.StaffInfoItem;
 import org.schabi.newpipe.extractor.downloader.CancellableCall;
 import org.schabi.newpipe.extractor.downloader.Downloader;
 import org.schabi.newpipe.extractor.downloader.Response;
@@ -516,11 +517,34 @@ public class YoutubeStreamExtractor extends StreamExtractor {
 
     @Override
     public boolean isUploaderVerified() throws ParsingException {
-        return YoutubeParsingHelper.isVerified(
-                getVideoSecondaryInfoRenderer()
-                        .getObject("owner")
-                        .getObject("videoOwnerRenderer")
-                        .getArray("badges"));
+        JsonObject videoOwnerRenderer = getVideoSecondaryInfoRenderer()
+                .getObject("owner")
+                .getObject("videoOwnerRenderer");
+        if (videoOwnerRenderer.has("badges")) {
+            return YoutubeParsingHelper.isVerified(videoOwnerRenderer.getArray("badges"));
+        }
+        JsonObject navigationEndpoint = videoOwnerRenderer.getObject("navigationEndpoint");
+        if (navigationEndpoint != null && navigationEndpoint.has("showDialogCommand")) {
+            try {
+                JsonArray listItems = navigationEndpoint
+                        .getObject("showDialogCommand")
+                        .getObject("panelLoadingStrategy")
+                        .getObject("inlineContent")
+                        .getObject("dialogViewModel")
+                        .getObject("customContent")
+                        .getObject("listViewModel")
+                        .getArray("listItems");
+                if (!listItems.isEmpty()) {
+                    JsonObject firstItem = listItems.getObject(0)
+                            .getObject("listItemViewModel")
+                            .getObject("title");
+                    if (firstItem.has("attachmentRuns")) {
+                        return true;
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        return false;
     }
 
     @Nonnull
@@ -528,56 +552,150 @@ public class YoutubeStreamExtractor extends StreamExtractor {
     public String getUploaderAvatarUrl() throws ParsingException {
         assertPageFetched();
 
-        JsonArray thumbnails = getVideoSecondaryInfoRenderer()
+        JsonObject videoOwnerRenderer = getVideoSecondaryInfoRenderer()
                 .getObject("owner")
-                .getObject("videoOwnerRenderer")
-                .getObject("thumbnail")
-                .getArray("thumbnails");
-        final String url = thumbnails
-                .getObject(thumbnails.size() - 1)
-                .getString("url");
+                .getObject("videoOwnerRenderer");
 
-        if (isNullOrEmpty(url)) {
-            if (ageLimit == NO_AGE_LIMIT) {
-                throw new ParsingException("Could not get uploader avatar URL");
+        if (videoOwnerRenderer.has("thumbnail")) {
+            JsonArray thumbnails = videoOwnerRenderer
+                    .getObject("thumbnail")
+                    .getArray("thumbnails");
+            final String url = thumbnails
+                    .getObject(thumbnails.size() - 1)
+                    .getString("url");
+
+            if (isNullOrEmpty(url)) {
+                if (ageLimit == NO_AGE_LIMIT) {
+                    throw new ParsingException("Could not get uploader avatar URL");
+                }
+                return EMPTY_STRING;
             }
-
-            return EMPTY_STRING;
+            return fixThumbnailUrl(url);
         }
 
-        return fixThumbnailUrl(url);
-    }
-
-    @Nonnull
-    @Override
-    public List<Image> getUploaderAvatars() throws ParsingException {
-        assertPageFetched();
-
-        final List<Image> imageList = getImagesFromThumbnailsArray(
-                getVideoSecondaryInfoRenderer().getObject("owner")
-                        .getObject("videoOwnerRenderer")
-                        .getObject("thumbnail")
-                        .getArray("thumbnails"));
-
-        if (imageList.isEmpty() && ageLimit == NO_AGE_LIMIT) {
-            throw new ParsingException("Could not get uploader avatars");
+        JsonObject navigationEndpoint = videoOwnerRenderer.getObject("navigationEndpoint");
+        if (navigationEndpoint != null && navigationEndpoint.has("showDialogCommand")) {
+            try {
+                JsonArray listItems = navigationEndpoint
+                        .getObject("showDialogCommand")
+                        .getObject("panelLoadingStrategy")
+                        .getObject("inlineContent")
+                        .getObject("dialogViewModel")
+                        .getObject("customContent")
+                        .getObject("listViewModel")
+                        .getArray("listItems");
+                if (!listItems.isEmpty()) {
+                    JsonArray sources = listItems.getObject(0)
+                            .getObject("listItemViewModel")
+                            .getObject("leadingAccessory")
+                            .getObject("avatarViewModel")
+                            .getObject("image")
+                            .getArray("sources");
+                    if (!sources.isEmpty()) {
+                        String url = sources.getObject(0).getString("url");
+                        if (!isNullOrEmpty(url)) {
+                            return fixThumbnailUrl(url);
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
         }
 
-        return imageList;
+        if (ageLimit == NO_AGE_LIMIT) {
+            throw new ParsingException("Could not get uploader avatar URL");
+        }
+        return EMPTY_STRING;
     }
 
     @Override
     public long getUploaderSubscriberCount() throws ParsingException {
         final JsonObject videoOwnerRenderer = JsonUtils.getObject(videoSecondaryInfoRenderer,
                 "owner.videoOwnerRenderer");
-        if (!videoOwnerRenderer.has("subscriberCountText")) {
-            return UNKNOWN_SUBSCRIBER_COUNT;
+        if (videoOwnerRenderer.has("subscriberCountText")) {
+            try {
+                return Utils.mixedNumberWordToLong(getTextFromObject(videoOwnerRenderer
+                        .getObject("subscriberCountText")));
+            } catch (final NumberFormatException e) {
+                throw new ParsingException("Could not get uploader subscriber count", e);
+            }
+        }
+        JsonObject navigationEndpoint = videoOwnerRenderer.getObject("navigationEndpoint");
+        if (navigationEndpoint != null && navigationEndpoint.has("showDialogCommand")) {
+            try {
+                JsonArray listItems = navigationEndpoint
+                        .getObject("showDialogCommand")
+                        .getObject("panelLoadingStrategy")
+                        .getObject("inlineContent")
+                        .getObject("dialogViewModel")
+                        .getObject("customContent")
+                        .getObject("listViewModel")
+                        .getArray("listItems");
+                if (!listItems.isEmpty()) {
+                    String subtitle = listItems.getObject(0)
+                            .getObject("listItemViewModel")
+                            .getObject("subtitle")
+                            .getString("content", "");
+                    int idx = subtitle.indexOf("•");
+                    if (idx >= 0) {
+                        String subCount = subtitle.substring(idx + 1).trim();
+                        return Utils.mixedNumberWordToLong(subCount);
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        return UNKNOWN_SUBSCRIBER_COUNT;
+    }
+
+    @Nonnull
+    @Override
+    public List<StaffInfoItem> getStaffs() {
+        final JsonObject videoOwnerRenderer = getVideoSecondaryInfoRenderer()
+                .getObject("owner")
+                .getObject("videoOwnerRenderer");
+        JsonObject navigationEndpoint = videoOwnerRenderer.getObject("navigationEndpoint");
+        if (navigationEndpoint == null || !navigationEndpoint.has("showDialogCommand")) {
+            return Collections.emptyList();
         }
         try {
-            return Utils.mixedNumberWordToLong(getTextFromObject(videoOwnerRenderer
-                    .getObject("subscriberCountText")));
-        } catch (final NumberFormatException e) {
-            throw new ParsingException("Could not get uploader subscriber count", e);
+            JsonArray listItems = navigationEndpoint
+                    .getObject("showDialogCommand")
+                    .getObject("panelLoadingStrategy")
+                    .getObject("inlineContent")
+                    .getObject("dialogViewModel")
+                    .getObject("customContent")
+                    .getObject("listViewModel")
+                    .getArray("listItems");
+            List<StaffInfoItem> result = new ArrayList<>();
+            for (Object item : listItems) {
+                JsonObject listItemViewModel = ((JsonObject) item).getObject("listItemViewModel");
+                String name = listItemViewModel.getObject("title").getString("content", "");
+                String avatarUrl = "";
+                JsonArray sources = listItemViewModel
+                        .getObject("leadingAccessory")
+                        .getObject("avatarViewModel")
+                        .getObject("image")
+                        .getArray("sources");
+                if (!sources.isEmpty()) {
+                    avatarUrl = sources.getObject(0).getString("url", "");
+                }
+                String channelUrl = "";
+                JsonArray commandRuns = listItemViewModel.getObject("title").getArray("commandRuns");
+                if (commandRuns != null && !commandRuns.isEmpty()) {
+                    JsonObject browseEndpoint = commandRuns.getObject(0)
+                            .getObject("onTap")
+                            .getObject("innertubeCommand")
+                            .getObject("browseEndpoint");
+                    String browseId = browseEndpoint.getString("browseId", "");
+                    if (!browseId.isEmpty()) {
+                        channelUrl = YoutubeChannelLinkHandlerFactory.getInstance()
+                                .getUrl("channel/" + browseId);
+                    }
+                }
+                result.add(new StaffInfoItem(getServiceId(), channelUrl, name, null, avatarUrl));
+            }
+            return result;
+        } catch (Exception e) {
+            return Collections.emptyList();
         }
     }
 
@@ -613,7 +731,7 @@ public class YoutubeStreamExtractor extends StreamExtractor {
 
         return streamingDataObjects.stream()
                 .filter(Objects::nonNull)
-                .map(streamingDataObject -> streamingDataObject.getString(manifestKey))
+                .map(streamingDataObject -> streamingDataObject.getString(manifestKey) + "?mpd_version=7")
                 .filter(Objects::nonNull)
                 .findFirst()
                 .orElse(EMPTY_STRING);
@@ -1460,7 +1578,10 @@ public class YoutubeStreamExtractor extends StreamExtractor {
                         .setContent(itagInfo.getContent() + (itagInfo.getIsUrl()?("&pppid="+getId()):""), itagInfo.getIsUrl())
                         .setMediaFormat(itagItem.getMediaFormat())
                         .setAverageBitrate(itagItem.getAverageBitrate())
-                        .setItagItem(itagItem);
+                        .setItagItem(itagItem)
+                        .setAudioTrackId(itagInfo.getAudioTrackId())
+                        .setAudioTrackName(itagInfo.getAudioTrackName())
+                        .setAudioLocale(itagInfo.getAudioLocale());
             } catch (ParsingException e) {
                 throw new RuntimeException(e);
             }
@@ -1468,8 +1589,6 @@ public class YoutubeStreamExtractor extends StreamExtractor {
             if (streamType == StreamType.LIVE_STREAM
                     || streamType == StreamType.POST_LIVE_STREAM
                     || !itagInfo.getIsUrl()) {
-                // For YouTube videos on OTF streams and for all streams of post-live streams
-                // and live streams, only the DASH delivery method can be used.
                 builder.setDeliveryMethod(DeliveryMethod.DASH);
             }
 
@@ -1553,48 +1672,46 @@ public class YoutubeStreamExtractor extends StreamExtractor {
             return java.util.stream.Stream.empty();
         }
 
-        String contentLanguage = ServiceList.YouTube.getAudioLanguage();
-        String foundLangCode = streamingData.getArray(streamingDataKey).stream().filter(element -> element instanceof JsonObject)
-                .map(element -> (JsonObject) element).filter(data -> data.has("audioTrack") && data.getString("mimeType").contains("audio")).map(data -> data.getObject("audioTrack"))
-                .filter(audioTrack -> audioTrack.has("id")).map(audioTrack -> audioTrack.getString("id"))
-                .map(audioId -> audioId.split("\\.")[0].split("-")[0]).filter(langCode -> langCode.equals(contentLanguage))
-                .findFirst().orElse(null);
-
+        String preferredAudioLanguage = ServiceList.YouTube.getAudioLanguage();
 
         java.util.stream.Stream<ItagInfo> result = streamingData.getArray(streamingDataKey).stream()
                 .filter(JsonObject.class::isInstance)
                 .map(JsonObject.class::cast)
-                .filter(data -> {
-                    try {
-                        if (data.getString("mimeType").contains("audio")) {
-                            if (foundLangCode != null) {
-                                return data.has("audioTrack") && data.getObject("audioTrack").has("id") &&
-                                        data.getObject("audioTrack").getString("id").split("\\.")[0].split("-")[0].equals(foundLangCode);
-                            } else {
-                                if (!data.has("audioTrack")) return true;
-                                return data.getObject("audioTrack").getString("displayName").contains("original");
-                            }
-                        }
-                        return true;
-                    } catch (final Exception ignored) {
-                        return true;
-                    }
-                })
                 .map(formatData -> {
                     try {
                         final ItagItem itagItem = ItagItem.getItag(formatData.getInt("itag"));
                         if (itagItem.itagType == itagTypeWanted) {
-                            return buildAndAddItagInfoToList(videoId, formatData, itagItem,
+                            final ItagInfo itagInfo = buildAndAddItagInfoToList(videoId, formatData, itagItem,
                                     itagItem.itagType, contentPlaybackNonce);
+                            if (itagInfo != null && itagItem.itagType == ItagItem.ItagType.AUDIO) {
+                                extractAndSetAudioTrackInfo(formatData, itagInfo, preferredAudioLanguage);
+                            }
+                            return itagInfo;
                         }
                     } catch (final IOException | ExtractionException e) {
-                        // if the itag is not supported and getItag fails, we end up here
                         e.printStackTrace();
                     }
                     return null;
                 })
                 .filter(Objects::nonNull);
         return result;
+    }
+
+    private void extractAndSetAudioTrackInfo(final JsonObject formatData,
+                                              final ItagInfo itagInfo,
+                                              final String preferredAudioLanguage) {
+        if (!formatData.has("audioTrack")) {
+            return;
+        }
+        final JsonObject audioTrack = formatData.getObject("audioTrack");
+        if (audioTrack.has("id")) {
+            final String audioTrackId = audioTrack.getString("id");
+            final String audioLocale = audioTrackId.split("\\.")[0].split("-")[0];
+            String audioTrackName = audioTrack.has("displayName")
+                    ? audioTrack.getString("displayName")
+                    : audioLocale;
+            itagInfo.setAudioTrackInfo(audioTrackId, audioTrackName, audioLocale);
+        }
     }
 
     private ItagInfo buildAndAddItagInfoToList(
