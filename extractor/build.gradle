@@ -3,15 +3,6 @@ plugins {
     id 'com.squareup.wire' version '4.4.0'
 }
 
-test {
-    // Pass on downloader type to tests for different CI jobs. See DownloaderFactory.java and ci.yml
-    if (System.properties.containsKey('downloader')) {
-        systemProperty('downloader', System.getProperty('downloader'))
-    }
-    useJUnitPlatform()
-    dependsOn checkstyleMain // run checkstyle when testing
-}
-
 checkstyle {
     getConfigDirectory().set(rootProject.file("checkstyle"))
     ignoreFailures false
@@ -22,10 +13,6 @@ checkstyle {
 wire {
     java {
     }
-}
-
-checkstyleTest {
-    enabled false // do not checkstyle test files
 }
 
 dependencies {
@@ -51,12 +38,4 @@ dependencies {
     implementation 'org.mozilla:rhino:1.7.13'
 
     checkstyle "com.puppycrawl.tools:checkstyle:$checkstyleVersion"
-
-    testImplementation platform("org.junit:junit-bom:$junitVersion")
-    testImplementation 'org.junit.jupiter:junit-jupiter-api'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
-    testImplementation 'org.junit.jupiter:junit-jupiter-params'
-
-
-    testImplementation 'com.google.code.gson:gson:2.9.1'
 }

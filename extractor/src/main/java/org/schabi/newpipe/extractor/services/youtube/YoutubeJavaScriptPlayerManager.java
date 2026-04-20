@@ -202,7 +202,7 @@ public final class YoutubeJavaScriptPlayerManager {
             @Nullable final List<String> signatures,
             @Nullable final List<String> throttlingParams) throws ParsingException {
         extractPlayerIdIfNeeded(videoId);
-        return YoutubeApiDecoder.decodeBatch(cachedPlayerId, signatures, throttlingParams);
+        return YoutubeApiDecoder.decodeBatch(signatures, throttlingParams);
     }
 
     /**
