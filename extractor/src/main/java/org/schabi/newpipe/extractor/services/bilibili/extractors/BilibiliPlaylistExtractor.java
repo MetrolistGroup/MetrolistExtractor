@@ -49,8 +49,6 @@ public class BilibiliPlaylistExtractor extends PlaylistExtractor {
                 return;
             }
             data = data.getObject("data");
-            String userResponse = getDownloader().get(QUERY_USER_INFO_URL + utils.getMidFromRecordApiUrl(getLinkHandler().getUrl()), getHeaders(getOriginalUrl())).responseBody();
-            userData = JsonParser.object().from(userResponse);
         } catch (JsonParserException e) {
             throw new RuntimeException(e);
         }
@@ -119,7 +117,7 @@ public class BilibiliPlaylistExtractor extends PlaylistExtractor {
         if (type.equals("partition")) {
             return getLinkHandler().getUrl().split("uploaderName=")[1].split("&")[0];
         }
-        return userData.getObject("data").getObject("card").getString("name");
+        return getUserInfoLazily().getObject("data").getObject("card").getString("name", "[Unknown]");
     }
 
     @Override
@@ -131,7 +129,7 @@ public class BilibiliPlaylistExtractor extends PlaylistExtractor {
                 return null;
             }
         }
-        return userData.getObject("data").getObject("card").getString("face").replace("http:", "https:");
+        return getUserInfoLazily().getObject("data").getObject("card").getString("face").replace("http:", "https:");
     }
 
     @Override
@@ -159,5 +157,27 @@ public class BilibiliPlaylistExtractor extends PlaylistExtractor {
         } else {
             return data.getObject("meta").getString("cover");
         }
+    }
+
+    // Get user metadata JSON lazily, without passible NPE.
+    private JsonObject getUserInfoLazily() {
+        if (userData != null) return userData;
+        try {
+            userData = JsonParser.object().from(getDownloader().get(getUserInfoRequestUrl(), getHeaders(getOriginalUrl())).responseBody());
+        } catch (Exception e) {
+            userData = new JsonObject();
+        }
+        return userData;
+    }
+
+    private String getUserInfoRequestUrl() {
+        String uid = null;
+        // Get from JSON directly
+        if (data != null) {
+            uid = data.getObject("meta").getString("mid");
+        }
+        // Use fallback
+        if (uid == null) uid = utils.getMidFromRecordApiUrl(getLinkHandler().getUrl());
+        return QUERY_USER_INFO_URL + uid;
     }
 }

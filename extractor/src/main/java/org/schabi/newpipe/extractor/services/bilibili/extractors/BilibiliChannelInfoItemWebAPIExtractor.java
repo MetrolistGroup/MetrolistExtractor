@@ -65,7 +65,7 @@ public class BilibiliChannelInfoItemWebAPIExtractor implements StreamInfoItemExt
 
     @Override
     public String getUploaderName() throws ParsingException {
-        return Optional.of(item.getString("author")).orElse(name);
+        return Optional.ofNullable(item.getString("author")).orElse(name);
     }
 
     @Override
