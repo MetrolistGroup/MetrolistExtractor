@@ -551,6 +551,12 @@ public class BilibiliChannelExtractor extends ChannelExtractor {
 
         while (currentTry > 0) {
             responseBody = downloader.get(url, headers).responseBody();
+            if (responseBody.startsWith("<!DOCTYPE html>")) {
+                // returns HTML, due to risk control
+                DeviceForger.regenerateRandomDevice(); // try to regenerate a new one
+                currentTry -= 1;
+                continue;
+            }
             try {
                 JsonObject responseJson = JsonParser.object().from(responseBody);
                 long code = responseJson.getLong("code");
