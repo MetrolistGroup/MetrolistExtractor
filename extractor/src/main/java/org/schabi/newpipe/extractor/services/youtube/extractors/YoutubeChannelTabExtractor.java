@@ -69,6 +69,8 @@ public class YoutubeChannelTabExtractor extends ChannelTabExtractor {
                 return "EghyZWxlYXNlc_IGBQoDsgEA";
             case ChannelTabs.PLAYLISTS:
                 return "EglwbGF5bGlzdHPyBgQKAkIA";
+            case ChannelTabs.PODCASTS:
+                return "Eghwb2RjYXN0c_IGBQoDugEA";
             default:
                 throw new ParsingException("Unsupported channel tab: " + name);
         }
@@ -197,9 +199,10 @@ public class YoutubeChannelTabExtractor extends ChannelTabExtractor {
         JsonObject foundTab = null;
         for (final Object tab : tabs) {
             if (((JsonObject) tab).has("tabRenderer")) {
-                if (((JsonObject) tab).getObject("tabRenderer").getObject("endpoint")
+                final String tabUrl = ((JsonObject) tab).getObject("tabRenderer").getObject("endpoint")
                         .getObject("commandMetadata").getObject("webCommandMetadata")
-                        .getString("url").endsWith(urlSuffix)) {
+                        .getString("url");
+                if (tabUrl != null && normalizeTabUrl(tabUrl).endsWith(urlSuffix)) {
                     foundTab = ((JsonObject) tab).getObject("tabRenderer");
                     break;
                 }
@@ -309,6 +312,11 @@ public class YoutubeChannelTabExtractor extends ChannelTabExtractor {
                         return channelIds.get(0);
                     }
                 });
+            } else if (richItem.has("lockupViewModel")) {
+                commitLockupItemIfSupported(collector,
+                        richItem.getObject("lockupViewModel"), channelIds);
+            } else {
+                return collectItem(collector, richItem, channelIds);
             }
         } else if (item.has("gridPlaylistRenderer")) {
             collector.commit(new YoutubePlaylistInfoItemExtractor(
@@ -318,6 +326,12 @@ public class YoutubeChannelTabExtractor extends ChannelTabExtractor {
                     return channelIds.get(0);
                 }
             });
+        } else if (item.has("playlistRenderer")) {
+            collector.commit(new YoutubeMixOrPlaylistInfoItemExtractor(
+                    item.getObject("playlistRenderer")));
+        } else if (item.has("radioRenderer")) {
+            collector.commit(new YoutubeMixOrPlaylistInfoItemExtractor(
+                    item.getObject("radioRenderer")));
         } else if (item.has("gridChannelRenderer")) {
             collector.commit(new YoutubeChannelInfoItemExtractor(
                     item.getObject("gridChannelRenderer")));
@@ -336,21 +350,71 @@ public class YoutubeChannelTabExtractor extends ChannelTabExtractor {
         } else if (item.has("continuationItemRenderer")) {
             return item.getObject("continuationItemRenderer");
         } else if (item.has("lockupViewModel")) {
-            final JsonObject lockupViewModel = item.getObject("lockupViewModel");
-            final String contentType = lockupViewModel.getString("contentType");
-            if ("LOCKUP_CONTENT_TYPE_PLAYLIST".equals(contentType)
-                    || "LOCKUP_CONTENT_TYPE_PODCAST".equals(contentType)) {
-                String channelName;
-                try {
-                     channelName = getChannelName();
-                } catch (Exception e) {
-                    channelName = channelIds.get(0);
-                }
-                commitPlaylistLockup(collector, lockupViewModel,
-                        channelName, null);
-            }
+            commitLockupItemIfSupported(collector,
+                    item.getObject("lockupViewModel"), channelIds);
         }
         return null;
+    }
+
+    private void commitLockupItemIfSupported(@Nonnull final MultiInfoItemsCollector collector,
+                                             @Nonnull final JsonObject lockupViewModel,
+                                             @Nonnull final List<String> channelIds) {
+        final String contentType = lockupViewModel.getString("contentType");
+        if ("LOCKUP_CONTENT_TYPE_PLAYLIST".equals(contentType)
+                || "LOCKUP_CONTENT_TYPE_PODCAST".equals(contentType)) {
+            String channelName;
+            try {
+                channelName = getChannelName();
+            } catch (final Exception e) {
+                channelName = channelIds.get(0);
+            }
+            commitPlaylistLockup(collector, lockupViewModel, channelName, null);
+            return;
+        }
+
+        if ("LOCKUP_CONTENT_TYPE_VIDEO".equals(contentType)
+                || "LOCKUP_CONTENT_TYPE_EPISODE".equals(contentType)) {
+            collector.commit(new YoutubeLockupStreamInfoItemExtractor(lockupViewModel,
+                    getTimeAgoParser()) {
+                @Override
+                public String getUploaderName() throws ParsingException {
+                    try {
+                        return super.getUploaderName();
+                    } catch (final ParsingException e) {
+                        return channelIds.get(0);
+                    }
+                }
+
+                @Override
+                public String getUploaderUrl() throws ParsingException {
+                    try {
+                        return super.getUploaderUrl();
+                    } catch (final ParsingException e) {
+                        return channelIds.get(1);
+                    }
+                }
+            });
+        }
+    }
+
+    @Nonnull
+    private static String normalizeTabUrl(@Nonnull final String tabUrl) {
+        String normalized = tabUrl;
+        final int queryIndex = normalized.indexOf('?');
+        if (queryIndex >= 0) {
+            normalized = normalized.substring(0, queryIndex);
+        }
+
+        final int fragmentIndex = normalized.indexOf('#');
+        if (fragmentIndex >= 0) {
+            normalized = normalized.substring(0, fragmentIndex);
+        }
+
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+
+        return normalized;
     }
 
     @Nullable
