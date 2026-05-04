@@ -234,19 +234,19 @@ public class YoutubeLockupStreamInfoItemExtractor implements StreamInfoItemExtra
 
     @Override
     public String getUploaderName() throws ParsingException {
-        final JsonArray metadataRows = lockupMetadataViewModel.getObject("metadata")
-                .getObject("contentMetadataViewModel")
-                .getArray("metadataRows");
+        final JsonObject navigationEndpoint = getUploaderNavigationEndpoint();
+        if (navigationEndpoint != null && navigationEndpoint.has("showDialogCommand")) {
+            final String uploaderName = getFirstContributorName(navigationEndpoint);
+            if (!isNullOrEmpty(uploaderName)) {
+                return uploaderName;
+            }
+        }
 
-        if (metadataRows.size() > 0) {
-            final JsonArray metadataParts = metadataRows.getObject(0).getArray("metadataParts");
-            if (metadataParts.size() > 0) {
-                final String uploaderName = metadataParts.getObject(0)
-                        .getObject("text")
-                        .getString("content");
-                if (!isNullOrEmpty(uploaderName)) {
-                    return uploaderName;
-                }
+        final JsonObject uploaderText = getUploaderText();
+        if (uploaderText != null) {
+            final String uploaderName = uploaderText.getString("content");
+            if (!isNullOrEmpty(uploaderName)) {
+                return uploaderName;
             }
         }
 
@@ -255,13 +255,85 @@ public class YoutubeLockupStreamInfoItemExtractor implements StreamInfoItemExtra
 
     @Override
     public String getUploaderUrl() throws ParsingException {
-        return getUrlFromNavigationEndpoint(
-                lockupMetadataViewModel.getObject("image")
-                        .getObject("decoratedAvatarViewModel")
-                        .getObject("rendererContext")
-                        .getObject("commandContext")
-                        .getObject("onTap")
-                        .getObject("innertubeCommand"));
+        final JsonObject navigationEndpoint = getUploaderNavigationEndpoint();
+        if (navigationEndpoint != null) {
+            final String uploaderUrl = getUrlFromNavigationEndpoint(navigationEndpoint);
+            if (!isNullOrEmpty(uploaderUrl)) {
+                return uploaderUrl;
+            }
+        }
+
+        throw new ParsingException("Could not get uploader url");
+    }
+
+    @Nullable
+    private JsonObject getUploaderText() {
+        final JsonArray metadataRows = lockupMetadataViewModel.getObject("metadata")
+                .getObject("contentMetadataViewModel")
+                .getArray("metadataRows");
+
+        if (metadataRows.isEmpty()) {
+            return null;
+        }
+
+        final JsonArray metadataParts = metadataRows.getObject(0).getArray("metadataParts");
+        if (metadataParts.isEmpty()) {
+            return null;
+        }
+
+        return metadataParts.getObject(0).getObject("text");
+    }
+
+    @Nullable
+    private JsonObject getUploaderNavigationEndpoint() {
+        final JsonObject image = lockupMetadataViewModel.getObject("image");
+        if (image == null || image.isEmpty()) {
+            return null;
+        }
+
+        if (image.has("decoratedAvatarViewModel")) {
+            return image.getObject("decoratedAvatarViewModel")
+                    .getObject("rendererContext")
+                    .getObject("commandContext")
+                    .getObject("onTap")
+                    .getObject("innertubeCommand");
+        }
+
+        if (image.has("avatarStackViewModel")) {
+            return image.getObject("avatarStackViewModel")
+                    .getObject("rendererContext")
+                    .getObject("commandContext")
+                    .getObject("onTap")
+                    .getObject("innertubeCommand");
+        }
+
+        return null;
+    }
+
+    @Nullable
+    private String getFirstContributorName(final JsonObject navigationEndpoint) {
+        try {
+            final JsonArray listItems = navigationEndpoint
+                    .getObject("showDialogCommand")
+                    .getObject("panelLoadingStrategy")
+                    .getObject("inlineContent")
+                    .getObject("dialogViewModel")
+                    .getObject("customContent")
+                    .getObject("listViewModel")
+                    .getArray("listItems");
+
+            if (listItems == null || listItems.isEmpty()) {
+                return null;
+            }
+
+            final String uploaderName = listItems.getObject(0)
+                    .getObject("listItemViewModel")
+                    .getObject("title")
+                    .getString("content", "");
+            return isNullOrEmpty(uploaderName) ? null : uploaderName;
+        } catch (final Exception ignored) {
+            return null;
+        }
     }
 
     @Override
@@ -316,7 +388,8 @@ public class YoutubeLockupStreamInfoItemExtractor implements StreamInfoItemExtra
 
         final String lowerCaseViewsText = viewsText.toLowerCase(Locale.ROOT);
         if (lowerCaseViewsText.contains("no views")
-                || lowerCaseViewsText.contains("akukho ukubukwa")) {
+                || lowerCaseViewsText.contains("akukho ukubukwa")
+                || lowerCaseViewsText.contains("akukho kubukwa")) {
             return 0L;
         } else if (lowerCaseViewsText.contains("recommended")
                 || lowerCaseViewsText.contains("okutusiwe")) {
@@ -407,14 +480,50 @@ public class YoutubeLockupStreamInfoItemExtractor implements StreamInfoItemExtra
     @Override
     public String getUploaderAvatarUrl() throws ParsingException {
         try {
-            return lockupMetadataViewModel.getObject("image")
-                    .getObject("decoratedAvatarViewModel")
-                    .getObject("avatar")
-                    .getObject("avatarViewModel")
-                    .getObject("image")
-                    .getArray("sources")
-                    .getObject(0)
-                    .getString("url");
+            final JsonObject navigationEndpoint = getUploaderNavigationEndpoint();
+            if (navigationEndpoint != null && navigationEndpoint.has("showDialogCommand")) {
+                final JsonArray sources = navigationEndpoint
+                        .getObject("showDialogCommand")
+                        .getObject("panelLoadingStrategy")
+                        .getObject("inlineContent")
+                        .getObject("dialogViewModel")
+                        .getObject("customContent")
+                        .getObject("listViewModel")
+                        .getArray("listItems")
+                        .getObject(0)
+                        .getObject("listItemViewModel")
+                        .getObject("leadingAccessory")
+                        .getObject("avatarViewModel")
+                        .getObject("image")
+                        .getArray("sources");
+                if (!sources.isEmpty()) {
+                    return sources.getObject(0).getString("url");
+                }
+            }
+
+            final JsonObject image = lockupMetadataViewModel.getObject("image");
+            if (image.has("decoratedAvatarViewModel")) {
+                return image.getObject("decoratedAvatarViewModel")
+                        .getObject("avatar")
+                        .getObject("avatarViewModel")
+                        .getObject("image")
+                        .getArray("sources")
+                        .getObject(0)
+                        .getString("url");
+            }
+
+            if (image.has("avatarStackViewModel")) {
+                return image.getObject("avatarStackViewModel")
+                        .getArray("avatars")
+                        .getObject(0)
+                        .getObject("avatarViewModel")
+                        .getObject("image")
+                        .getArray("sources")
+                        .getObject(0)
+                        .getString("url");
+            }
+
+            return null;
         } catch (final Exception e) {
             return null;
         }

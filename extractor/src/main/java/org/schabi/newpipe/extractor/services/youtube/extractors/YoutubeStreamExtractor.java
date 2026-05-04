@@ -358,7 +358,8 @@ public class YoutubeStreamExtractor extends StreamExtractor {
         }
 
         if (views.toLowerCase().contains("no views")
-                || views.toLowerCase().contains("akukho ukubukwa")) {
+                || views.toLowerCase().contains("akukho ukubukwa")
+                || views.toLowerCase().contains("akukho kubukwa")) {
             return 0;
         }
 

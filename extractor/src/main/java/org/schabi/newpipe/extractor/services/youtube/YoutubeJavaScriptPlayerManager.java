@@ -1,9 +1,19 @@
 package org.schabi.newpipe.extractor.services.youtube;
 
+import com.grack.nanojson.JsonObject;
+import com.grack.nanojson.JsonParser;
+import com.grack.nanojson.JsonParserException;
+import org.schabi.newpipe.extractor.NewPipe;
+import org.schabi.newpipe.extractor.downloader.Response;
 import org.schabi.newpipe.extractor.exceptions.ParsingException;
+import org.schabi.newpipe.extractor.exceptions.ReCaptchaException;
+import org.schabi.newpipe.extractor.localization.Localization;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -25,10 +35,13 @@ import java.util.Map;
  */
 public final class YoutubeJavaScriptPlayerManager {
 
+    private static final String LATEST_PLAYER_URL =
+            "https://api.pipepipe.dev/decoder/latest-player";
+    private static final String USER_AGENT = "PipePipe/4.9.0";
+    private static final long PLAYER_METADATA_TTL_MILLIS = 24L * 60L * 60L * 1000L;
+
     @Nullable
-    private static String cachedPlayerId;
-    @Nullable
-    private static Integer cachedSignatureTimestamp;
+    private static PlayerMetadata playerMetadata;
 
     private YoutubeJavaScriptPlayerManager() {
     }
@@ -42,12 +55,11 @@ public final class YoutubeJavaScriptPlayerManager {
      * </p>
      *
      * <p>
-     * The signature timestamp is extracted from the JavaScript player file and cached.
+     * The signature timestamp is loaded together with the player ID from the decoder API.
      * </p>
      *
      * <p>
-     * The result of the extraction is cached until {@link #clearAllCaches()} is called, making
-     * subsequent calls faster.
+     * The metadata is reused for up to 24 hours before being refreshed from the API.
      * </p>
      *
      * @param videoId the video ID used to get the JavaScript base player file (an empty one can be
@@ -59,21 +71,7 @@ public final class YoutubeJavaScriptPlayerManager {
     @Nonnull
     public static Integer getSignatureTimestamp(@Nonnull final String videoId)
             throws ParsingException {
-        // Return the cached result if it is present
-        if (cachedSignatureTimestamp != null) {
-            return cachedSignatureTimestamp;
-        }
-
-        try {
-            // The signature timestamp is still needed for InnerTube player requests
-            // We extract it from the JavaScript file (only the timestamp, not the decode functions)
-            final String playerCode = YoutubeJavaScriptExtractor.extractJavaScriptPlayerCode(videoId);
-            cachedSignatureTimestamp = Integer.valueOf(YoutubeSignatureUtils.getSignatureTimestamp(playerCode));
-        } catch (final Exception e) {
-            throw new ParsingException("Could not get signature timestamp", e);
-        }
-
-        return cachedSignatureTimestamp;
+        return getPlayerMetadata(videoId).signatureTimestamp;
     }
 
     /**
@@ -94,8 +92,8 @@ public final class YoutubeJavaScriptPlayerManager {
     public static String deobfuscateSignature(@Nonnull final String videoId,
                                               @Nonnull final String obfuscatedSignature)
             throws ParsingException {
-        extractPlayerIdIfNeeded(videoId);
-        return YoutubeApiDecoder.decodeSignature(cachedPlayerId, obfuscatedSignature);
+        return YoutubeApiDecoder.decodeSignature(
+                getPlayerMetadata(videoId).playerId, obfuscatedSignature);
     }
 
     /**
@@ -131,54 +129,33 @@ public final class YoutubeJavaScriptPlayerManager {
             return streamingUrl;
         }
 
-        extractPlayerIdIfNeeded(videoId);
+        final PlayerMetadata metadata = getPlayerMetadata(videoId);
 
         final String deobfuscatedThrottlingParameter = YoutubeApiDecoder.decodeThrottlingParameter(
-                cachedPlayerId, obfuscatedThrottlingParameter);
+                metadata.playerId, obfuscatedThrottlingParameter);
 
         return streamingUrl.replace(
                 obfuscatedThrottlingParameter, deobfuscatedThrottlingParameter);
     }
 
     /**
-     * Get the current cache size of decoded parameters from the API decoder.
-     *
-     * @return the current cache size
-     */
-    public static int getThrottlingParametersCacheSize() {
-        return YoutubeApiDecoder.getCacheSize();
-    }
-
-    /**
-     * Clear all caches.
+     * Clear the cached player metadata.
      *
      * <p>
-     * This method will clear the cached player ID and API decoder cache.
-     * </p>
-     *
-     * <p>
-     * The next time {@link #getSignatureTimestamp(String)},
-     * {@link #deobfuscateSignature(String, String)} or
-     * {@link #getUrlWithThrottlingParameterDeobfuscated(String, String)} is called, the player ID
-     * will be fetched again.
+     * The next access will fetch a fresh player ID and signature timestamp from the API.
      * </p>
      */
     public static void clearAllCaches() {
-        cachedPlayerId = null;
-        cachedSignatureTimestamp = null;
+        playerMetadata = null;
         YoutubeApiDecoder.clearCache();
     }
 
-    /**
-     * Clear all cached throttling parameters from the API decoder.
-     *
-     * <p>
-     * The API decoder will be called again for these parameters if streaming URLs containing them
-     * are passed in the future.
-     * </p>
-     */
     public static void clearThrottlingParametersCache() {
         YoutubeApiDecoder.clearCache();
+    }
+
+    public static int getThrottlingParametersCacheSize() {
+        return YoutubeApiDecoder.getCacheSize();
     }
 
     /**
@@ -201,22 +178,75 @@ public final class YoutubeJavaScriptPlayerManager {
             @Nonnull final String videoId,
             @Nullable final List<String> signatures,
             @Nullable final List<String> throttlingParams) throws ParsingException {
-        extractPlayerIdIfNeeded(videoId);
-        return YoutubeApiDecoder.decodeBatch(signatures, throttlingParams);
+        return YoutubeApiDecoder.decodeBatch(
+                getPlayerMetadata(videoId).playerId, signatures, throttlingParams);
     }
 
     /**
-     * Extract the player ID if it isn't already cached.
+     * Load player metadata from memory or refresh it from the decoder API.
      *
-     * @param videoId the video ID used to get the JavaScript base player ID (an empty one can be
-     *                passed, even it is not recommend in order to spoof better official YouTube
-     *                clients)
-     * @throws ParsingException if the extraction of the player ID failed
+     * @param videoId unused, kept to avoid changing public call sites
+     * @throws ParsingException if loading the player metadata failed
      */
-    private static void extractPlayerIdIfNeeded(@Nonnull final String videoId)
+    @Nonnull
+    private static PlayerMetadata getPlayerMetadata(@Nonnull final String videoId)
             throws ParsingException {
-        if (cachedPlayerId == null) {
-            cachedPlayerId = YoutubeJavaScriptExtractor.extractPlayerId(videoId);
+        final PlayerMetadata currentMetadata = playerMetadata;
+        if (currentMetadata != null && !currentMetadata.isExpired()) {
+            return currentMetadata;
+        }
+
+        playerMetadata = fetchLatestPlayerMetadata();
+        return playerMetadata;
+    }
+
+    @Nonnull
+    private static PlayerMetadata fetchLatestPlayerMetadata() throws ParsingException {
+        final Map<String, List<String>> headers = new HashMap<>();
+        headers.put("User-Agent", Collections.singletonList(USER_AGENT));
+
+        try {
+            final Response response = NewPipe.getDownloader().get(
+                    LATEST_PLAYER_URL, headers, Localization.DEFAULT);
+            final JsonObject responseJson = JsonParser.object().from(response.responseBody());
+
+            final String playerId = responseJson.getString("player", "");
+            if (playerId.isEmpty()) {
+                throw new ParsingException("latest-player response missing player");
+            }
+
+            if (!responseJson.has("signatureTimestamp")) {
+                throw new ParsingException("latest-player response missing signatureTimestamp");
+            }
+
+            final int signatureTimestamp = responseJson.getInt("signatureTimestamp");
+            return new PlayerMetadata(playerId, signatureTimestamp,
+                    System.currentTimeMillis() + PLAYER_METADATA_TTL_MILLIS);
+        } catch (final IOException e) {
+            throw new ParsingException("Failed to fetch latest player metadata", e);
+        } catch (final ReCaptchaException e) {
+            throw new ParsingException("Failed to fetch latest player metadata", e);
+        } catch (final JsonParserException e) {
+            throw new ParsingException("Failed to parse latest player metadata", e);
+        }
+    }
+
+    private static final class PlayerMetadata {
+        @Nonnull
+        private final String playerId;
+        private final int signatureTimestamp;
+        private final long expiresAt;
+
+        private PlayerMetadata(@Nonnull final String playerId,
+                               final int signatureTimestamp,
+                               final long expiresAt) {
+            this.playerId = playerId;
+            this.signatureTimestamp = signatureTimestamp;
+            this.expiresAt = expiresAt;
+        }
+
+        private boolean isExpired() {
+            return System.currentTimeMillis() >= expiresAt;
         }
     }
 }

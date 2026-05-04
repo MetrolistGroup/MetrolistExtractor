@@ -284,13 +284,13 @@ public class YoutubeStreamInfoItemExtractor implements StreamInfoItemExtractor {
 
     @Override
     public String getUploaderName() throws ParsingException {
-        String name = getTextFromObject(videoInfo.getObject("longBylineText"));
+        String name = getUploaderNameFromTextObject(videoInfo.getObject("longBylineText"));
 
         if (isNullOrEmpty(name)) {
-            name = getTextFromObject(videoInfo.getObject("ownerText"));
+            name = getUploaderNameFromTextObject(videoInfo.getObject("ownerText"));
 
             if (isNullOrEmpty(name)) {
-                name = getTextFromObject(videoInfo.getObject("shortBylineText"));
+                name = getUploaderNameFromTextObject(videoInfo.getObject("shortBylineText"));
 
                 if (isNullOrEmpty(name)) {
                     if (!isNullOrEmpty(fallbackUploaderName)) {
@@ -306,16 +306,13 @@ public class YoutubeStreamInfoItemExtractor implements StreamInfoItemExtractor {
 
     @Override
     public String getUploaderUrl() throws ParsingException {
-        String url = getUrlFromNavigationEndpoint(videoInfo.getObject("longBylineText")
-                .getArray("runs").getObject(0).getObject("navigationEndpoint"));
+        String url = getUploaderUrlFromTextObject(videoInfo.getObject("longBylineText"));
 
         if (isNullOrEmpty(url)) {
-            url = getUrlFromNavigationEndpoint(videoInfo.getObject("ownerText")
-                    .getArray("runs").getObject(0).getObject("navigationEndpoint"));
+            url = getUploaderUrlFromTextObject(videoInfo.getObject("ownerText"));
 
             if (isNullOrEmpty(url)) {
-                url = getUrlFromNavigationEndpoint(videoInfo.getObject("shortBylineText")
-                        .getArray("runs").getObject(0).getObject("navigationEndpoint"));
+                url = getUploaderUrlFromTextObject(videoInfo.getObject("shortBylineText"));
 
                 if (isNullOrEmpty(url)) {
                     if (!isNullOrEmpty(fallbackUploaderUrl)) {
@@ -327,6 +324,81 @@ public class YoutubeStreamInfoItemExtractor implements StreamInfoItemExtractor {
         }
 
         return url;
+    }
+
+    @Nullable
+    private String getUploaderNameFromTextObject(@Nullable final JsonObject textObject)
+            throws ParsingException {
+        if (textObject == null || textObject.isEmpty()) {
+            return null;
+        }
+
+        final JsonObject navigationEndpoint = getUploaderNavigationEndpoint(textObject);
+        if (navigationEndpoint != null && navigationEndpoint.has("showDialogCommand")) {
+            final String name = getFirstContributorName(navigationEndpoint);
+            if (!isNullOrEmpty(name)) {
+                return name;
+            }
+        }
+
+        return getTextFromObject(textObject);
+    }
+
+    @Nullable
+    private String getUploaderUrlFromTextObject(@Nullable final JsonObject textObject)
+            throws ParsingException {
+        final JsonObject navigationEndpoint = getUploaderNavigationEndpoint(textObject);
+        if (navigationEndpoint == null) {
+            return null;
+        }
+
+        return getUrlFromNavigationEndpoint(navigationEndpoint);
+    }
+
+    @Nullable
+    private JsonObject getUploaderNavigationEndpoint(@Nullable final JsonObject textObject) {
+        if (textObject == null || textObject.isEmpty() || !textObject.has("runs")) {
+            return null;
+        }
+
+        final JsonArray runs = textObject.getArray("runs");
+        if (runs == null || runs.isEmpty()) {
+            return null;
+        }
+
+        final JsonObject firstRun = runs.getObject(0);
+        if (firstRun == null || !firstRun.has("navigationEndpoint")) {
+            return null;
+        }
+
+        return firstRun.getObject("navigationEndpoint");
+    }
+
+    @Nullable
+    private String getFirstContributorName(final JsonObject navigationEndpoint) {
+        try {
+            final JsonArray listItems = navigationEndpoint
+                    .getObject("showDialogCommand")
+                    .getObject("panelLoadingStrategy")
+                    .getObject("inlineContent")
+                    .getObject("dialogViewModel")
+                    .getObject("customContent")
+                    .getObject("listViewModel")
+                    .getArray("listItems");
+
+            if (listItems == null || listItems.isEmpty()) {
+                return null;
+            }
+
+            final String name = listItems.getObject(0)
+                    .getObject("listItemViewModel")
+                    .getObject("title")
+                    .getString("content", "");
+
+            return isNullOrEmpty(name) ? null : name;
+        } catch (final Exception ignored) {
+            return null;
+        }
     }
 
     @Nullable
@@ -454,7 +526,8 @@ public class YoutubeStreamInfoItemExtractor implements StreamInfoItemExtractor {
                                 || content.toLowerCase().contains("no views")
                                 || content.toLowerCase().contains("akukho"))) {
                             if (content.toLowerCase().contains("no views")
-                                    || content.toLowerCase().contains("akukho ukubukwa")) {
+                                    || content.toLowerCase().contains("akukho ukubukwa")
+                                    || content.toLowerCase().contains("akukho kubukwa")) {
                                 return 0;
                             } else if (content.toLowerCase().contains("recommended")
                                     || content.toLowerCase().contains("okutusiwe")) {
@@ -471,7 +544,8 @@ public class YoutubeStreamInfoItemExtractor implements StreamInfoItemExtractor {
             final String viewCount = getTextFromObject(videoInfo.getObject("viewCountText"));
 
             if (viewCount.toLowerCase().contains("no views")
-                    || viewCount.toLowerCase().contains("akukho ukubukwa")) {
+                    || viewCount.toLowerCase().contains("akukho ukubukwa")
+                    || viewCount.toLowerCase().contains("akukho kubukwa")) {
                 return 0;
             } else if (viewCount.toLowerCase().contains("recommended")
                     || viewCount.toLowerCase().contains("okutusiwe")) {
