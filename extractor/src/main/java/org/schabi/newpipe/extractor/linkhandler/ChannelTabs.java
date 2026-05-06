@@ -7,6 +7,7 @@ public final class ChannelTabs {
     public static final String LIVESTREAMS = "livestreams";
     public static final String CHANNELS = "channels";
     public static final String PLAYLISTS = "playlists";
+    public static final String PODCASTS = "podcasts";
     public static final String ALBUMS = "albums";
 
     private ChannelTabs() {
