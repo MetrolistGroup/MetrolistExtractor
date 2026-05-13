@@ -674,8 +674,7 @@ public class YoutubeChannelExtractor extends ChannelExtractor {
                         .getObject("commandMetadata").getObject("webCommandMetadata")
                         .getString("url");
                 if (tabUrl != null) {
-                    final String[] urlParts = tabUrl.split("/");
-                    final String urlSuffix = urlParts[urlParts.length - 1];
+                    final String urlSuffix = normalizeTabSuffix(tabUrl);
 
                     switch (urlSuffix) {
                         case "videos":
@@ -684,6 +683,9 @@ public class YoutubeChannelExtractor extends ChannelExtractor {
                             break;
                         case "playlists":
                             addTab.accept(ChannelTabs.PLAYLISTS);
+                            break;
+                        case "podcasts":
+                            addTab.accept(ChannelTabs.PODCASTS);
                             break;
                         case "streams":
                             addTab.accept(ChannelTabs.LIVESTREAMS);
@@ -721,6 +723,31 @@ public class YoutubeChannelExtractor extends ChannelExtractor {
 
         this.videoTab = foundVideoTab;
         return foundVideoTab;
+    }
+
+    @Nonnull
+    private static String normalizeTabSuffix(@Nonnull final String tabUrl) {
+        String normalized = tabUrl;
+        final int queryIndex = normalized.indexOf('?');
+        if (queryIndex >= 0) {
+            normalized = normalized.substring(0, queryIndex);
+        }
+
+        final int fragmentIndex = normalized.indexOf('#');
+        if (fragmentIndex >= 0) {
+            normalized = normalized.substring(0, fragmentIndex);
+        }
+
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+
+        final int slashIndex = normalized.lastIndexOf('/');
+        if (slashIndex < 0 || slashIndex == normalized.length() - 1) {
+            return normalized;
+        }
+
+        return normalized.substring(slashIndex + 1);
     }
 
 }
